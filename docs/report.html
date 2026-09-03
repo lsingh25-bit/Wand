@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Edge of Magic — Technical Report</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Charter", "Georgia", "Times New Roman", serif; font-size: 10.2pt; line-height: 1.52; color: #16181d; margin: 0; }
+  h1, h2, h3, h4 { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #0e1116; line-height: 1.25; }
+  h1 { font-size: 21pt; margin: 0 0 4pt; letter-spacing: -0.4pt; }
+  h2 { font-size: 14pt; margin: 26pt 0 8pt; padding-bottom: 4pt; border-bottom: 1.6pt solid #1f4e79; page-break-after: avoid; }
+  h3 { font-size: 11.4pt; margin: 16pt 0 5pt; color: #1f4e79; page-break-after: avoid; }
+  h4 { font-size: 10.2pt; margin: 12pt 0 4pt; color: #333; page-break-after: avoid; }
+  p { margin: 0 0 7pt; text-align: justify; }
+  ul, ol { margin: 0 0 8pt; padding-left: 17pt; }
+  li { margin-bottom: 3pt; }
+  code { font-family: "SF Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace; font-size: 8.7pt; background: #f1f3f6; padding: 0.5pt 2.5pt; border-radius: 2px; }
+  pre { font-family: "SF Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace; font-size: 7.5pt; line-height: 1.36;
+        background: #f7f8fa; border: 0.6pt solid #d9dee5; border-left: 2.6pt solid #1f4e79;
+        padding: 7pt 9pt; margin: 8pt 0 10pt; overflow-x: hidden; white-space: pre-wrap; word-wrap: break-word; page-break-inside: avoid; }
+  pre.long { page-break-inside: auto; }
+  .filename { font-family: "SF Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace; font-size: 7.6pt;
+              background: #1f4e79; color: #fff; padding: 2.5pt 7pt; display: inline-block; margin-bottom: -8pt;
+              position: relative; z-index: 1; border-radius: 2px 2px 0 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0 11pt; font-size: 8.6pt; page-break-inside: avoid; }
+  th { background: #1f4e79; color: #fff; text-align: left; padding: 4.5pt 6pt; font-family: Helvetica, Arial, sans-serif; font-weight: 600; }
+  td { padding: 4pt 6pt; border-bottom: 0.5pt solid #dde2e8; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7f8fa; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cover { text-align: center; padding-top: 40mm; page-break-after: always; }
+  .cover h1 { font-size: 30pt; border: none; margin-bottom: 6pt; }
+  .cover .sub { font-size: 13pt; color: #1f4e79; margin-bottom: 26pt; font-family: Helvetica, Arial, sans-serif; }
+  .cover .meta { font-size: 10pt; color: #444; line-height: 1.9; }
+  .callout { border: 0.7pt solid #c9d4e0; background: #eef3f9; border-left: 3pt solid #1f4e79; padding: 7pt 10pt; margin: 10pt 0; page-break-inside: avoid; }
+  .callout .lab { font-family: Helvetica, Arial, sans-serif; font-size: 7.8pt; font-weight: 700; letter-spacing: 0.6pt; text-transform: uppercase; color: #1f4e79; display: block; margin-bottom: 3pt; }
+  .warn { border-color: #e0c9a0; background: #fdf6e9; border-left-color: #b07d20; }
+  .warn .lab { color: #8a5f10; }
+  .good { border-color: #b8d8b8; background: #f0f8f0; border-left-color: #2e7d32; }
+  .good .lab { color: #1f5c23; }
+  .stop { border-color: #e5b4b4; background: #fdf0f0; border-left-color: #b02020; }
+  .stop .lab { color: #8a1010; }
+  .newpage { page-break-before: always; }
+  .toc { font-size: 9.6pt; }
+  .toc div { padding: 1.6pt 0; border-bottom: 0.4pt dotted #ccc; }
+  .toc .n { display: inline-block; width: 26pt; color: #1f4e79; font-weight: 600; }
+  .small { font-size: 8.6pt; color: #555; }
+  .ascii { font-family: "DejaVu Sans Mono", monospace; font-size: 7.2pt; line-height: 1.28; background: #fbfcfd;
+           border: 0.6pt solid #dde2e8; padding: 8pt; white-space: pre; overflow-x: hidden; }
+  .r3 { display: inline-block; background: #1f4e79; color: #fff; font-family: Helvetica, Arial, sans-serif;
+        font-size: 6.8pt; font-weight: 700; letter-spacing: 0.5pt; padding: 1pt 4pt; border-radius: 2px;
+        vertical-align: 2pt; margin-left: 4pt; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="sub">Takneek 2026 &middot; Mid Prep &middot; Technical Report</div>
+  <h1>The Edge of Magic</h1>
+  <div class="sub">A Standalone TinyML Spell-Recognition Wand<br>ESP32-WROOM-32 &middot; BNO055 sensor fusion &middot; 50 cm shaft</div>
+  <div class="meta">
+    <strong>Pipeline</strong> &nbsp; BNO055 IMU fusion &rarr; quaternion-anchored frame &rarr; int8 CNN &rarr; five-stage rejection cascade<br>
+    <strong>Inference</strong> &nbsp; entirely on-chip, TensorFlow Lite for Microcontrollers<br>
+    <strong>Tensor</strong> &nbsp; 64 steps &times; 12 channels &middot; translation and rotation decoupled<br>
+    <strong>Model</strong> &nbsp; 7,174 parameters &middot; 22,520-byte int8 flatbuffer &middot; 6 classes<br>
+    <strong>Wand</strong> &nbsp; 500 mm tube &middot; sensor 130 mm below the tip &middot; +X along the shaft<br>
+    <strong>Serial offloading</strong> &nbsp; not compiled into the demo binary<br><br>
+    <span class="small">Document revision R4 &middot; 1 September 2026</span>
+  </div>
+</div>
+
+<h2 style="margin-top:0">Contents</h2>
+<div class="toc">
+<div><span class="n">1</span> Executive summary and status</div>
+<div><span class="n">2</span> Requirement analysis: every rule mapped to a design response</div>
+<div><span class="n">3</span> Hardware architecture, bill of materials, and the physical stack-up</div>
+<div><span class="n">4</span> Spell vocabulary, kinematic definitions, and the lever-arm model</div>
+<div><span class="n">5</span> Data acquisition: sampling, segmentation, collection protocol</div>
+<div><span class="n">6</span> The signal processing chain, step by step</div>
+<div><span class="n">7</span> The TinyML model: architecture, training, quantisation</div>
+<div><span class="n">8</span> False-positive rejection — the Muggle Movement defence</div>
+<div><span class="n">9</span> Validation methodology, the synthetic quarantine, and the corpus audit</div>
+<div><span class="n">10</span> Firmware implementation walkthrough</div>
+<div><span class="n">11</span> Latency and memory budget</div>
+<div><span class="n">12</span> On-device processing compliance</div>
+<div><span class="n">13</span> Execution plan for the remaining build window</div>
+<div><span class="n">14</span> Risk register and fallbacks</div>
+<div><span class="n">15</span> Appendix: repository layout and reproduction</div>
+</div>
+
+<h2>1 &nbsp; Executive summary and status</h2>
+
+<p>This report describes a self-contained wearable wand that recognises five spell gestures and, equally
+importantly, refuses to recognise anything else. All sensing, signal conditioning, neural inference and
+decision-making run on a single ESP32-WROOM-32. Nothing is offloaded; the demonstration firmware does not
+contain a call to <code>Serial.begin()</code> at all.</p>
+
+<p>Motion is captured by a <strong>BNO055</strong> running in IMU fusion mode, which does its own sensor
+fusion on an onboard Cortex-M0 and returns gravity-free linear acceleration, bias-compensated angular rate,
+and an orientation quaternion at 100&nbsp;Hz. That quaternion is what the rest of the design is built around:
+every gesture is rotated into the frame the wand occupied at the instant the caster began, which
+<em>decouples translation from rotation</em> instead of leaving them entangled the way a raw body-frame
+representation does. The resulting 64&times;12 tensor is classified by a 7,174-parameter depthwise-separable
+1-D CNN, quantised to int8, into four compulsory spells, one bonus spell, and an explicitly trained
+<em>NOISE</em> class. A five-stage rejection cascade wraps the network and decides whether to fire at all.</p>
+
+<p>The wand is a 500&nbsp;mm tube. The ESP32 and the power system live at the butt, where the hand grips; the
+OLED faces the caster from mid-shaft; the BNO055 is mounted <strong>130&nbsp;mm below the tip</strong> with its
++X axis running along the shaft towards the tip; the eight-LED ring is at the tip itself. That geometry is not
+packaging trivia and it is not confined to §3 — it is an input to the signal model. A sensor bolted 370&nbsp;mm
+from the caster's hand does not measure the hand; it measures the hand <em>plus a lever arm</em>, and for
+every gesture in this vocabulary the lever term is three to ten times the larger. R4 exists because the
+previous revision's bootstrap generator did not know that.</p>
+
+<h3>1.1 &nbsp; Honest statement of what has and has not been measured</h3>
+
+<p>At the time of writing, no gestures have been recorded from human casters. This report therefore
+contains <strong>no accuracy figure derived from real data</strong>, and deliberately does not invent one.
+What it does contain is a fully built, executed and verified pipeline, plus <strong>ten</strong> defects that
+were found and fixed before any data existed &mdash; five of them in R4, and four of those five found
+<em>because</em> the wand's real geometry was written into the model. The table separates the two categories,
+because a report that blurs them is worthless.</p>
+
+<table>
+<tr><th style="width:29%">Item</th><th style="width:19%">Status</th><th>Evidence</th></tr>
+<tr><td>Python &harr; C++ preprocessing parity</td><td><strong>Measured</strong></td>
+    <td>Worst per-element difference 6.32&times;10<sup>&minus;6</sup> across 60 captures, against a 10<sup>&minus;3</sup> tolerance. Stage 1 <em>verdict</em> parity now checked too, after a negative control walked through the old harness untouched. Three negative controls, all caught (§9.2).</td></tr>
+<tr><td>Firmware compiles, all six translation units</td><td><strong>Measured</strong></td>
+    <td><code>tools/hostcheck/check.sh</code> type-checks every firmware source on a laptop against stubbed Arduino and TFLM headers. Not a functional test; it removes the flash-cycle-per-typo loop (§10.5).</td></tr>
+<tr><td>Constant and channel-layout parity</td><td><strong>Measured</strong></td>
+    <td>10 pytest assertions pass; 1 skipped by design until thresholds are calibrated on real data.</td></tr>
+<tr><td>Model size and parameter count</td><td><strong>Measured</strong></td>
+    <td>7,174 parameters; 22,520-byte int8 <code>.tflite</code>; int8 input and output.</td></tr>
+<tr><td>Cost of int8 quantisation</td><td><strong>Measured</strong></td>
+    <td><em>Zero.</em> int8 argmax accuracy is identical to float. Worst channel still resolves to 58 int8 levels (§7.5).</td></tr>
+<tr><td>Threshold calibration effect</td><td><strong>Measured</strong></td>
+    <td>Cascade accuracy 0.452 &rarr; 0.983 on the same quantised model, purely from calibrating three thresholds instead of guessing them (§8.4).</td></tr>
+<tr><td>Accelerometer reportable range</td><td><strong>Measured</strong></td>
+    <td>Per-axis linear acceleration reaches exactly <strong>5.00&nbsp;g</strong> &mdash; the &plusmn;4&nbsp;g rail <em>plus</em> the gravity the fusion subtracts back out. R3's divisor of 3.0 was derived with the sign the wrong way round and railed 2.4% of all samples (§6.5).</td></tr>
+<tr><td>Stage 1 gate operating point</td><td>Measured on <em>bootstrap</em></td>
+    <td>98&ndash;100% of spell windows pass; 61% of noise windows stopped before inference (50% impact, 11% no motion). Both arms swept jointly, not guessed (§8.3).</td></tr>
+<tr><td>Bootstrap corpus physical plausibility</td><td>Measured on <em>bootstrap</em></td>
+    <td>All six classes inside their bands for peak rate, peak acceleration, tip speed and duration; lever-arm coupling &rho;&nbsp;=&nbsp;0.63&ndash;0.93 within each rotational class (§9.5). The same script is the acceptance test for the real corpus.</td></tr>
+<tr><td>Inference latency on ESP32</td><td>Estimated</td>
+    <td>~66k MAC operations; 2–5&nbsp;ms expected. The firmware measures and prints the real value.</td></tr>
+<tr><td>Classification accuracy</td><td><strong>Not measured</strong></td>
+    <td>Requires real captures. §13 gives the collection plan; §9.1 gives the protocol that will produce the number.</td></tr>
+</table>
+
+<div class="callout warn">
+<span class="lab">Why this section exists</span>
+An earlier iteration of this project produced a leave-one-caster-out accuracy of 100.0% with a standard
+deviation of 0.00% across six folds. That number came from a generator, not from people, and it very nearly
+reached a slide. Real six-axis data from real humans does not behave that way. The synthetic quarantine
+described in §9.4 is the mechanism that makes a repeat impossible, and this table is its documentation.
+</div>
+
+<h3>1.2 &nbsp; What changed in revision R3, and why it is not a drop-in swap</h3>
+
+<p>R2 of this design used an MPU-6050 and removed gravity in software. R3 uses a BNO055. The wiring change is
+trivial; the consequences are not, and three of them are load-bearing.</p>
+
+<table>
+<tr><th style="width:26%">Area</th><th style="width:30%">R2 (MPU-6050)</th><th>R3 (BNO055, IMU fusion)</th></tr>
+<tr><td>Gyro bias</td><td>Mean of the pre-roll window, in software</td><td>Estimated continuously by the fusion. Software step <strong>deleted</strong>; replaced by a calibration-status arming gate.</td></tr>
+<tr><td>Orientation</td><td>Complementary filter, roll and pitch only</td><td>Full quaternion from the chip. Filter <strong>deleted</strong> — and with it the step our own negative control proved was the easiest thing here to get wrong.</td></tr>
+<tr><td>Gravity</td><td>Projected and subtracted in software</td><td>Already removed by the chip. Step <strong>deleted</strong>.</td></tr>
+<tr><td>Feature frame</td><td>Sensor body frame — translation smeared through the wand's own rotation</td><td>Anchored to gesture start — translation and rotation separated (§6.3)</td></tr>
+<tr><td>Tensor</td><td>64 &times; 8</td><td>64 &times; 12, four of them the relative quaternion</td></tr>
+<tr><td>Accel range</td><td>&plusmn;8 g, chosen for Stupefy headroom</td><td><strong>Locked to &plusmn;4 g</strong> by the fusion, on the <em>raw</em> signal. R4 corrected what that implies: linear acceleration is reportable to &plusmn;5 g, and sharp casts saturate (§6.5).</td></tr>
+<tr><td>Impact rejection</td><td>Peak magnitude above 7.5 g</td><td>Unreachable at &plusmn;4 g. Replaced by a spike-<em>width</em> test (§8.3).</td></tr>
+<tr><td>Free-fall detection</td><td>&#124;a&#124; near zero for 50 ms</td><td>Not visible in fusion mode. Stage <strong>removed</strong>, and covered instead by the trigger and the impact test (§8.2).</td></tr>
+</table>
+
+<p>The counsel we were originally given was to disable the fusion (AMG mode) so that the existing software
+chain would not subtract gravity twice. That reasoning identifies a real hazard and draws the wrong
+conclusion: the fix is to delete the software chain, not to switch off the most valuable thing the
+sensor does. Running a hand-written complementary filter on a chip that contains a Kalman-class estimator is
+paying for a part and then declining to use it.</p>
+
+<h3>1.3 &nbsp; What changed in revision R4: the wand became part of the model</h3>
+
+<p>R3 was correct about the sensor and silent about the object it is bolted to. The bootstrap generator that
+de-risked the whole pipeline described each spell as <em>two independently hand-tuned curves</em>: an angular
+rate programme, and, separately, an acceleration programme. Nothing connected them.</p>
+
+<p>That is not a small liberty. It is the wrong physics, and it is wrong in the direction that flatters the
+model. On the real wand the accelerometer channel is very nearly a deterministic function of the gyro channel,
+because the sensor is 370&nbsp;mm up a rigid shaft from a hand that is 80&ndash;330&nbsp;mm behind it. A
+generator that treats acceleration as free hands the network a channel carrying independent information that
+the hardware will never provide, and the network learns a decision rule that does not exist.</p>
+
+<p>R4 replaces those curves with rigid-body kinematics driven by the measured geometry (§4.2). The caster's
+motion is now specified as the two things a human actually commands &mdash; how the wand rotates, and where
+the hand goes &mdash; and everything the accelerometer sees is derived. Four consequences followed
+immediately, and none of them were anticipated:</p>
+
+<table>
+<tr><th style="width:26%">Consequence</th><th>What it changed</th></tr>
+<tr><td>The accelerometer divisor was wrong</td><td><code>NORM_ACC_LIN</code> was 3.0 on the reasoning that "gravity consumes 1&nbsp;g of the 4". Gravity is <em>subtracted</em>, so it extends the range rather than eating it: the true bound is 5&nbsp;g and the corpus reaches exactly that. At 3.0 the tensor railed on 2.4% of all samples, including the peak of every sharp flick &mdash; the part that identifies the gesture (§6.5).</td></tr>
+<tr><td>The Stage 1 energy gate was strictly dominated</td><td>Swept jointly rather than per-feature, R3's 2.20&nbsp;/&nbsp;1.00&nbsp;/&nbsp;1.80 lost 2.0% of spells to stop 14.4% of noise. 0.90&nbsp;/&nbsp;0.30&nbsp;/&nbsp;1.00 loses <em>none</em> and still stops 11.1% (§8.3).</td></tr>
+<tr><td>The impact sweep had been truncated</td><td>Its grid stopped at 2.4&nbsp;g because R3 believed 3&nbsp;g was the ceiling. A sweep whose grid stops short does not report that it stopped short &mdash; it reports a winner (§8.3).</td></tr>
+<tr><td>An over-long trigger hold produced a classified spell</td><td>A six-second hold read 230 samples of overwritten ring buffer, spliced across the write pointer, carrying a duration of exactly <code>REJ_MAX_DURATION_S</code> &mdash; which passed the duration bound and went to the network (§10.4).</td></tr>
+</table>
+
+<p>Three of the four are defects that existed in R3 and were invisible to every test R3 had. They became
+visible the moment the synthetic data started obeying the same physics the hardware does. That is the argument
+for modelling the object rather than the signal, made concretely rather than in the abstract.</p>
+
+<p>R4 also consolidated the firmware. The tree had accumulated <em>two</em> incompatible BNO055
+implementations &mdash; the fusion driver the whole pipeline is built on, and a second one running the chip as
+a plain 6-axis sensor, each defining a struct called <code>RawSample</code> with different fields. Neither was
+reachable from a build, so nothing failed. There is now exactly one driver, in
+<code>firmware/common/</code>, and all three firmware targets link it (§10.1).</p>
+
+<h2 class="newpage">2 &nbsp; Requirement analysis</h2>
+
+<table>
+<tr><th style="width:32%">Requirement</th><th style="width:30%">Design response</th><th>Where</th></tr>
+<tr><td>Inference strictly on the microcontroller</td><td>TFLM int8 CNN in flash; demo build compiles no serial code at all</td><td>§10, §12</td></tr>
+<tr><td>Four compulsory spells classified in real time</td><td>6-class CNN over a 64&times;12 tensor</td><td>§7</td></tr>
+<tr><td>Bonus spells</td><td>Stupefy added as class 4, chosen to be kinematically orthogonal to the other four</td><td>§4</td></tr>
+<tr><td>Muggle Movement — no false positives</td><td>Trained NOISE class plus a five-stage cascade, tuned against an asymmetric cost</td><td>§8</td></tr>
+<tr><td>Directional movements explicitly defined</td><td>Body-frame convention fixed in §4; the anchored frame makes it independent of which way the caster faces</td><td>§4, §6.3</td></tr>
+<tr><td>Quick-Draw latency, printed on screen</td><td><code>LATENCY_MS</code> measured from confirmed trigger release and rendered on the OLED every cast</td><td>§11</td></tr>
+<tr><td>SRAM management and quantisation</td><td>Static buffers only, no heap on the hot path; full-integer int8 with int8 I/O, measured to cost nothing</td><td>§7.5, §11.2</td></tr>
+<tr><td>Wand Chooses the Wizard — invariance</td><td>Anchoring removes facing; quaternion-conjugating grip augmentation covers wrist roll; LOCO validation</td><td>§7.4, §9.1</td></tr>
+<tr><td>Budget cap &#8377;2,000</td><td><strong>At risk.</strong> The BNO055 alone is 55–65% of the cap; see §3.1 for the arithmetic and the levers</td><td>§3.1</td></tr>
+<tr><td>Anti-overfitting strategy</td><td>LOCO, physically exact augmentation, label smoothing, dropout, held-out caster</td><td>§7.3, §7.4</td></tr>
+</table>
+
+<h2>3 &nbsp; Hardware architecture, bill of materials, and the physical stack-up</h2>
+
+<h3>3.1 &nbsp; Bill of materials, and a budget problem that needs a decision</h3>
+
+<div class="callout stop">
+<span class="lab">Read this before anything else in this section</span>
+A BNO055 breakout in India retails between roughly &#8377;1,100 (7Semi, plus 18% GST) and &#8377;1,500
+(ThinkRobotics). At those prices the sensor alone consumes 55–65% of the &#8377;2,000 cap, and the complete
+build lands between <strong>&#8377;2,160 and &#8377;2,810 — over the limit</strong> (&#8377;2,607 at the 7Semi price with GST). The MPU-6050 it replaced
+cost &#8377;75. This is not a rounding error and it will not resolve itself; §3.2 lists the levers and the
+one question that decides which of them is needed.
+</div>
+
+<table>
+<tr><th>#</th><th>Component</th><th>Specification</th><th class="num">Qty</th><th class="num">&#8377;</th><th>Purpose</th></tr>
+<tr><td>1</td><td>ESP32-WROOM-32 DevKit</td><td>30-pin, CP2102</td><td class="num">1</td><td class="num">340</td><td>MCU, 240 MHz dual core, 520 KB SRAM</td></tr>
+<tr><td>2</td><td><strong>BNO055 breakout</strong></td><td>9-DOF, onboard fusion, I2C</td><td class="num">1</td><td class="num"><strong>850–1,500</strong></td><td>Motion sensing <em>and</em> orientation. No spare — see §14.</td></tr>
+<tr><td>3</td><td>SSD1306 OLED</td><td>0.96&Prime;, 128&times;64, I2C</td><td class="num">1</td><td class="num">165</td><td>Spell name, confidence, latency readout</td></tr>
+<tr><td>4</td><td>WS2812B ring</td><td>8 addressable LEDs</td><td class="num">1</td><td class="num">135</td><td>Per-spell colour feedback</td></tr>
+<tr><td>5</td><td>Tactile switch + 100 nF</td><td>6&times;6 mm, ceramic</td><td class="num">1</td><td class="num">15</td><td>Hold-to-record cast trigger with RC debounce</td></tr>
+<tr><td>6</td><td>Passive piezo buzzer</td><td>&lt;5 mA</td><td class="num">1</td><td class="num">20</td><td>Audible cast confirmation</td></tr>
+<tr><td>7</td><td>Li-Po cell</td><td>3.7 V, 1000 mAh, JST-PH</td><td class="num">1</td><td class="num">280</td><td>Untethered operation</td></tr>
+<tr><td>8</td><td>TP4056 module</td><td>with DW01 protection</td><td class="num">1</td><td class="num">40</td><td>Charging and cell protection</td></tr>
+<tr><td>9</td><td>MT3608 boost converter</td><td>adjustable, set to 4.50 V</td><td class="num">1</td><td class="num">45</td><td>Single 4.5 V rail — see §3.4</td></tr>
+<tr><td>10</td><td>Passives</td><td>470 &micro;F, 1000 &micro;F, 100 nF &times;3, 470 &Omega;, 100 k&Omega; &times;2, slide switch</td><td class="num">—</td><td class="num">50</td><td>Filtering, debounce, LED termination, battery sense</td></tr>
+<tr><td>11</td><td>Perfboard, headers, wire</td><td>—</td><td class="num">—</td><td class="num">90</td><td>Assembly</td></tr>
+<tr><td>12</td><td>PVC pipe 25 mm + end caps</td><td><strong>500 mm</strong> length</td><td class="num">1</td><td class="num">80</td><td>Wand shaft &mdash; the length is a model input, see §3.5 and §4.2</td></tr>
+<tr><td>13</td><td>Heat-shrink, tape, adhesive</td><td>—</td><td class="num">—</td><td class="num">50</td><td>Finishing and strain relief</td></tr>
+<tr><td colspan="4"><strong>Total</strong></td><td class="num"><strong>2,160&ndash;2,810</strong></td><td><strong>&#8377;160&ndash;810 over the cap</strong></td></tr>
+</table>
+
+<p class="small">No diodes appear in this BoM. The 1N5819 reverse-polarity guard was unobtainable, and the
+1N4007 in the LED branch became unnecessary once the boost converter was set to 4.50&nbsp;V instead of
+5.00&nbsp;V — see §3.4. The cost of dropping the 1N5819 is that reverse-polarity protection is now
+procedural rather than electrical: check Li-Po polarity with a multimeter before the first connection and
+mark the verified orientation, because JST-PH keying does not help when a vendor crimped the connector
+backwards.</p>
+
+<h3>3.2 &nbsp; The levers, in the order they should be pulled</h3>
+
+<ol>
+<li><strong>Ask the coordinators whether a club-borrowed or already-owned BNO055 counts against the cap.</strong>
+This question was already open and is now the single most consequential one on the project. It is a
+five-minute conversation and it decides whether any of the following is needed.</li>
+<li><strong>Source a generic GY-BNO055 rather than a branded breakout.</strong> Unbranded modules list
+substantially below the 7Semi and ThinkRobotics prices. Same silicon; verify <code>CHIP_ID</code> reads
+<code>0xA0</code> on arrival, because clone modules in this family sometimes carry a different part.</li>
+<li><strong>Drop the battery path (&#8377;365) and run from a USB power bank</strong> housed in the handle.
+This preserves the on-device-inference claim completely — a power bank carries no data lines and cannot
+receive an offloaded computation — but it is visually weaker and invites a question from a judge, so it is
+third rather than second.</li>
+<li><strong>Drop the buzzer (&#8377;20) and the enclosure spend (&#8377;80)</strong> in favour of cardboard or
+a wooden dowel, which the problem statement explicitly permits. Saves &#8377;100 and costs presentation
+marks; a last resort.</li>
+</ol>
+
+<p>What should <em>not</em> be cut is the OLED: the problem statement requires the latency variable to be
+printed on screen, so it is a compliance item, not a decoration.</p>
+
+<h3>3.3 &nbsp; IMU configuration and the reasoning for each value</h3>
+
+<p>These register writes are part of the frozen contract with the training data. Unlike the MPU-6050, none of
+them is a <em>range</em> setting — in fusion mode the algorithm owns the ranges — which removes an entire
+class of silent error, where a scale constant and a register drift apart and every capture is quietly
+rescaled.</p>
+
+<table>
+<tr><th>Setting</th><th>Value</th><th>Reasoning</th></tr>
+<tr><td><code>OPR_MODE</code> (0x3D)</td><td><code>0x08</code> IMUPLUS</td>
+    <td>Accelerometer + gyroscope fusion, <strong>magnetometer off</strong>. Not NDOF (0x0C): the magnetometer is the one sensor that is actively hostile in a demo hall — steel tables, laptops, speakers, and a WS2812 ring drawing ~150 mA a few centimetres away. Absolute heading is not needed, because §6.3 anchors every gesture to its own starting orientation and heading cancels. IMU mode also needs only <em>gyro</em> calibration, which reaches full status after a few seconds of stillness, instead of a figure-of-eight magnetometer dance in front of the judges.</td></tr>
+<tr><td><code>UNIT_SEL</code> (0x3B)</td><td><code>0x00</code></td>
+    <td>m/s², degrees per second, degrees. This is the power-on default and is written explicitly anyway, so that a chip left in mg or rad/s by an earlier experiment cannot silently rescale the entire dataset.</td></tr>
+<tr><td>Bus speed</td><td>100 kHz</td>
+    <td>Not 400 kHz. The BNO055 stretches the I2C clock, and a too-fast bus with a short timeout produces an intermittent hang — it passes every quick bench test and dies mid-demo. <code>Wire.setTimeOut(1000)</code> for the same reason. 100 kHz costs 2.4 ms per 26-byte burst, which is affordable on a core that does nothing else.</td></tr>
+<tr><td>Accel range</td><td>&plusmn;4 g <em>(locked)</em></td>
+    <td>Not a choice; every fusion mode fixes it. The rail is on the <em>raw</em> signal, and the fusion subtracts gravity afterwards, so what the linear-acceleration registers can report is <strong>&plusmn;5&nbsp;g per axis</strong> &mdash; the rail plus one gravity, not minus it. R3 had this backwards; §6.5 has the correction and what it cost. The rail is still what forced the impact-test redesign in §8.3.</td></tr>
+<tr><td>Gyro range</td><td>&plusmn;2000 dps <em>(locked)</em></td>
+    <td>Also fixed by the fusion, and fortunately the value we would have chosen: a hard wrist flick exceeds 1000 dps, and at &plusmn;500 dps every flick would clip flat and become indistinguishable across the four spells that contain one.</td></tr>
+<tr><td>Scale factors</td><td>100 LSB/(m/s²), 16 LSB/dps, 16384 LSB/quaternion unit</td>
+    <td>Datasheet constants, not measurements. Note that the "lay it flat and read the vertical axis" calibration procedure used for the MPU-6050 <strong>does not work here</strong>: linear acceleration is gravity-free and reads ~0 at rest on every axis. The equivalent check is to read the gravity vector register and confirm ~981 counts on the vertical axis.</td></tr>
+</table>
+
+<h3>3.4 &nbsp; Bus, core and power architecture</h3>
+
+<div class="ascii">                     ESP32-WROOM-32
+     ┌──────────────────────── CORE 0 ────────────────────────┐
+     │  hw_timer ISR (10 ms)  ──give──▶  imuTask (prio MAX)   │
+     │                                       │                 │
+     │                    I2C bus 0 @ 100 kHz, 26-byte burst   │
+     │                                       ▼                 │
+     │             BNO055 (0x28)  IMU fusion mode 0x08         │
+     │             0x14 gyro │ 0x1A euler │ 0x20 quat │ 0x28 lia│
+     │                                       │                 │
+     │                        320-sample circular buffer       │
+     └───────────────────────────────────────┼─────────────────┘
+                                             │  snapshot on release
+     ┌──────────────────────── CORE 1 ───────┼─────────────────┐
+     │  loop(): debounce ▸ segment ▸ preprocess ▸ TFLM ▸ cascade│
+     │                              │                │          │
+     │              I2C bus 1 ──────┘          GPIO4 │ 470Ω     │
+     │              SSD1306 (0x3C)             WS2812 ring ×8   │
+     │              GPIO25/26                  GPIO18 buzzer    │
+     └──────────────────────────────────────────────────────────┘
+
+   POWER (no diodes)
+     Li-Po 3.7V ▸ TP4056+DW01 ▸ slide switch ▸ MT3608 @ 4.50 V
+                                                  ├─▶ ESP32 VIN  (470µF ∥ 100nF)
+                                                  └─▶ ring V+    (1000µF at ring)
+                        ESP32 onboard AMS1117 ──▶ 3V3 ─┬─▶ BNO055 VIN
+                                                       └─▶ OLED VCC</div>
+
+<p><strong>Why the boost is set to 4.50&nbsp;V and not 5.00&nbsp;V.</strong> This single change removed both
+diodes from the design. A WS2812's logic threshold is approximately 0.7&times;V<sub>DD</sub>; at 5&nbsp;V that
+is 3.5&nbsp;V and the ESP32 only drives 3.3&nbsp;V — marginal on a cool bench, and a source of dropped pixels
+once the chip warms up mid-demo. The original fix was a diode in the ring's supply. Setting the whole rail to
+4.50&nbsp;V puts the threshold at 3.15&nbsp;V, which 3.3&nbsp;V logic clears, while still leaving the AMS1117
+about 1.2&nbsp;V of headroom to produce 3.3&nbsp;V. One trimpot turn replaces a component.</p>
+
+<p><strong>Set the MT3608 before connecting anything to its output.</strong> These ship at arbitrary settings
+and can arrive well above 5&nbsp;V. Battery and switch on the input, output bare, multimeter on the output,
+turn the trimpot until it reads 4.50&nbsp;V.</p>
+
+<p><strong>Why two I2C buses.</strong> Pushing a full 128&times;64 frame to the SSD1306 occupies its bus for
+25–30&nbsp;ms. Sharing a bus with the sensor would mean the sampler simply cannot read for that window, and
+the resulting gaps in the 10&nbsp;ms grid are invisible: the logger keeps producing well-formed CSV
+throughout. Bus separation removes the contention, pinning the display to core 1 removes the CPU contention,
+and the firmware additionally never touches the display while a capture is active. Three independent defences
+against one silent failure.</p>
+
+<p><strong>Star grounding.</strong> Every ground returns to one point, and the LED ring's return gets its own
+wire rather than being daisy-chained. Ring current through a shared ground wire creates offsets that couple
+into the sensor as noise — and with a fusion sensor that noise does not merely add to the output, it degrades
+the orientation estimate that the entire feature representation is built on.</p>
+
+<p><strong>Why GPIO27 for the trigger.</strong> It is not a strapping pin. GPIO&nbsp;0, 2, 12 and 15 are
+sampled at reset to select boot mode, so a trigger on any of those would drop the board into firmware
+download mode if a judge happened to be holding it at power-on.</p>
+
+<h3>3.5 &nbsp; Physical stack-up along the shaft <span class="r3">R4</span></h3>
+
+<p>The wand is a 500&nbsp;mm tube. Where each component sits along it is a mechanical decision with a signal
+consequence, so the layout is recorded here as a measurement, and the same numbers appear in
+<code>shared/wand_config.h</code> where the software can read them.</p>
+
+<div class="ascii">   BUTT                                                                    TIP
+     0cm        ~10cm         ~22cm              37cm                    50cm
+     ├───────────┼──────────────┼──────────────────┼───────────────────────┤
+     │  ESP32    │  Li-Po +     │   SSD1306 OLED   │      BNO055           │  WS2812
+     │  DevKit   │  TP4056 +    │   facing the     │      +X ──▶ tip       │  ring ×8
+     │           │  MT3608      │   caster         │                       │
+     └───────────┴──────────────┴──────────────────┴───────────────────────┘
+      ▲                          ▲                  ▲                       ▲
+      │                          │                  │                       │
+   trigger under              25-30 ms              13 cm below the tip    240 µs
+   the thumb; the             refresh, never        SENSOR_FROM_BUTT_M     of disabled
+   GRIP is here               during a capture      = 0.370                interrupts
+
+   MASS       ~85 % of the wand's mass is in the first 12 cm.  The wand is
+   BALANCE    butt-heavy, which is why casters grip it over the electronics
+              and swing it from the elbow rather than the fingers -- and why
+              PIVOT_ELBOW_M is the default pivot for four of the five spells.
+
+   LEVER      pivot            distance behind butt    lever arm to sensor
+   ARMS       wrist                    0.08 m                 0.45 m
+              elbow                    0.33 m                 0.70 m
+              shoulder                 0.62 m                 0.99 m</div>
+
+<p><strong>Why the BNO055 goes at 37&nbsp;cm and not next to the ESP32.</strong> Three reasons, in order of
+weight. Signal: acceleration at the sensor scales with the lever arm, so a sensor near the hand sees a
+fraction of the motion and the accelerometer channels become mostly noise. Interference: the ESP32's WiFi
+front end, the boost converter's switching node and the battery's charge current are all at the butt, and the
+BNO055's fusion output degrades with supply noise rather than merely getting noisier. Rigidity: the sensor
+must not move relative to the shaft, and a short unsupported span near the tip is easier to bond solidly than
+a crowded compartment.</p>
+
+<p><strong>Why the LED ring goes past it, at the tip.</strong> The ring is the feedback the caster and the
+judge actually look at, and at the tip it reads as the wand casting rather than as a board blinking. The cost
+is that its supply and data wires run the length of the tube, past the sensor. They are twisted with their own
+return and the ring's ground goes back to the star point on its own wire, because ~150&nbsp;mA of switched LED
+current sharing a ground with the sensor is exactly the disturbance that shows up as orientation drift.</p>
+
+<p><strong>Why the OLED sits at 22&nbsp;cm.</strong> It has to face the caster while the wand is held, which
+puts it in the middle third; further forward and the hand covers it, further back and it points at the floor
+when the wand is raised. It is also the heaviest thing that is not the battery, so keeping it behind the
+sensor keeps the balance point behind the grip.</p>
+
+<div class="callout warn">
+<span class="lab">Two mounting facts the software cannot check for itself</span>
+The sensor's <strong>+X must point at the tip</strong> and the board must be <strong>rigidly bonded</strong>.
+If +X points at the butt, every derivation in §4.2 describes a mirrored wand; if the board can shift a few
+degrees in its mount, the anchor drifts between the pre-roll and the cast. Neither shows up in the data as
+anything but slightly worse accuracy. Test&nbsp;5 of the bring-up suite (§13) checks the axis directly, by
+pointing the tip at the floor and reading the gravity vector out of the quaternion &mdash; body-frame "up"
+should come back as approximately (&minus;1,&nbsp;0,&nbsp;0).
+</div>
+
+<h2 class="newpage">4 &nbsp; Spell vocabulary, kinematic definitions, and the lever-arm model</h2>
+
+<p>Directional definitions are fixed in the wand's own body frame: <strong>+X</strong> along the wand towards
+the tip, <strong>+Y</strong> to the caster's left, <strong>+Z</strong> up through the back of the wand. The
+sensor is mounted with X along the shaft and Z out of the PCB face, 370&nbsp;mm forward of the butt
+(§3.5). One sign convention is worth stating explicitly because it catches everyone: by the right-hand rule
+about +Y with +Z up, a <em>positive</em> pitch rate carries the tip <em>downward</em>. Every "tip up" move in
+this document therefore carries a negative pitch excursion, and the code is written that way rather than with
+a flipped axis, so that the frame stays the one the firmware uses.</p>
+
+<table>
+<tr><th>#</th><th>Spell</th><th>Trajectory</th><th>Dominant signature</th><th class="num">Nominal duration</th></tr>
+<tr><td>0</td><td>Lumos</td><td>Upward loop</td><td>Sustained +&omega;<sub>y</sub> sweeping a full 2&pi; in the vertical plane, preceded by a lift</td><td class="num">0.75–1.35 s</td></tr>
+<tr><td>1</td><td>Alohomora</td><td>Backward loop and flick</td><td>&minus;&omega;<sub>y</sub> loop (opposite sign to Lumos) terminated by a short high-rate &omega;<sub>z</sub> burst</td><td class="num">0.80–1.40 s</td></tr>
+<tr><td>2</td><td>Expelliarmus</td><td>Spiral swirl</td><td>Simultaneous &omega;<sub>x</sub> and &omega;<sub>y</sub> in phase quadrature; the longest and most sustained</td><td class="num">1.00–1.60 s</td></tr>
+<tr><td>3</td><td>Wingardium Leviosa</td><td>Swish and flick</td><td>Broad lateral &omega;<sub>z</sub> sweep followed by a crisp upward &omega;<sub>y</sub> flick</td><td class="num">0.70–1.25 s</td></tr>
+<tr><td>4</td><td>Stupefy <span class="small">(bonus)</span></td><td>Ballistic forward thrust</td><td>Near-zero rotation, large +a<sub>x</sub> then a hard decelerating rebound</td><td class="num">0.40–0.75 s</td></tr>
+<tr><td>5</td><td><em>NOISE</em></td><td>Everything else</td><td>Six recorded sub-behaviours: pacing, scratching, gesticulating, setting down, dropping, aborted casts</td><td class="num">0.6–1.9 s</td></tr>
+</table>
+
+<h3>4.1 &nbsp; Why Stupefy is the right bonus spell, and the trap it sets twice</h3>
+
+<p>Stupefy was not chosen for flavour. The four compulsory spells all consist of rotation, and three of the
+four contain a terminal flick, so they occupy a similar region of feature space and compete with one another.
+Stupefy is defined as a thrust with almost no rotation, which places it in an otherwise empty region: it adds
+a class without crowding the existing ones. It also provides a free integrity check — its peak angular rate
+should be several times smaller than every other spell's, and if that ordering ever inverts, the labels have
+been shuffled.</p>
+
+<p>The same property that makes it a good bonus spell has now caused <em>two</em> separate false-rejection
+defects in the plausibility gate, both caught on the bench and both documented in §8.3. Anything that
+pre-filters on "is this energetic enough to be a spell" will, if written carelessly, silently delete the one
+spell whose signature is not rotational.</p>
+
+<h3>4.2 &nbsp; The wand is a lever, and that dominates the signal <span class="r3">R4</span></h3>
+
+<p>Everything above describes what the caster does. What the <em>sensor</em> records is a different quantity,
+and the difference is the 370&nbsp;mm of tube between the two. For a point rigidly attached to a rotating
+body, its acceleration is</p>
+
+<pre>a_sensor  =  a_pivot   +   &alpha; &times; r   +   &omega; &times; (&omega; &times; r)
+             \______/       \_____/       \____________/
+              the hand        Euler         centripetal
+              travels        (angular       (always inward,
+                              accel)         always present)</pre>
+
+<p>where <strong>r</strong> is the fixed vector from the centre of rotation to the sensor, and all three terms
+are expressed in the sensor's own frame. The BNO055's linear-acceleration registers report exactly this
+quantity, because the fusion has already removed gravity.</p>
+
+<p>The centre of rotation is a property of the <em>caster</em>, not the wand. A flick pivots at the wrist,
+roughly 80&nbsp;mm behind the butt; a loop or a swish pivots at the elbow, roughly 330&nbsp;mm behind it;
+walking swings the whole arm from the shoulder. Adding the sensor's 370&nbsp;mm gives lever arms of
+0.45&nbsp;m, 0.70&nbsp;m and 0.99&nbsp;m &mdash; so even the <em>shortest</em> puts the BNO055 nearly half a
+metre from the point it is rotating about.</p>
+
+<p>Put numbers to it. At the 6&nbsp;rad/s a brisk flick reaches, the centripetal term alone is
+0.45&nbsp;&times;&nbsp;6² = 16&nbsp;m/s², or <strong>1.7&nbsp;g</strong> &mdash; from rotation, with the hand
+held perfectly still. The Euler term is larger still during the flick itself, because a 0.8&nbsp;rad turn in
+280&nbsp;ms implies about 60&nbsp;rad/s² and 0.45&nbsp;m of arm turns that into 2.7&nbsp;g. Meanwhile the
+caster's hand, travelling 200&nbsp;mm in half a second, contributes about 0.2&nbsp;g.</p>
+
+<table>
+<tr><th>Term</th><th class="num">Typical contribution</th><th>Reading</th></tr>
+<tr><td>Centripetal &omega;&times;(&omega;&times;r)</td><td class="num">1.0–2.5 g</td><td>Present whenever the wand rotates. Cannot be switched off, scales as &omega;².</td></tr>
+<tr><td>Euler &alpha;&times;r</td><td class="num">1.5–4.0 g</td><td>Peaks at the start and end of every sub-move. This is what a "flick" is, in the accelerometer.</td></tr>
+<tr><td>Hand travel a<sub>pivot</sub></td><td class="num">0.1–0.4 g</td><td>Dominant for Stupefy only, which is a thrust rather than a turn.</td></tr>
+</table>
+
+<p>Three things follow that are not obvious without doing the arithmetic:</p>
+
+<ul>
+<li><strong>The accelerometer is mostly a second view of the gyroscope.</strong> Within each rotational class
+the correlation between peak &vert;&omega;&vert; and peak &vert;a&vert; measures 0.63–0.93 (§9.5). The channels
+are not independent, and a generator that made them independent was teaching the network a relationship the
+hardware will never show it.</li>
+<li><strong>Saturation is normal, not a failure.</strong> A wand this long genuinely drives the &plusmn;4&nbsp;g
+rail on sharp casts. That is expected, it affects Alohomora and Wingardium Leviosa most, and it is precisely
+why the impact test keys on duration instead of magnitude (§8.3).</li>
+<li><strong>Grip position matters more than grip angle.</strong> A caster who chokes up on the shaft, or who
+flicks from the wrist where another swings from the elbow, changes <strong>r</strong> and therefore changes
+the acceleration amplitude by up to a factor of two &mdash; while the gyro channels barely move. That is
+modelled as a per-caster pivot scale in the bootstrap corpus and is one of the axes leave-one-caster-out
+validation is testing.</li>
+</ul>
+
+<div class="callout">
+<span class="lab">Where this model is approximate, stated plainly</span>
+The pivot is treated as a single point on the wand's own axis, fixed for the duration of a gesture. Neither is
+exactly true: a real wrist sits slightly off the shaft's line, and a gesture that begins at the elbow and ends
+at the wrist moves its pivot mid-cast (Alohomora does exactly this, and is modelled with a pivot halfway
+between the two). Both approximations understate variety rather than inventing it, which is the safe
+direction. The quantity they get right &mdash; that the lever term dominates, and by how much &mdash; is the
+one the design depends on.
+</div>
+
+<h2>5 &nbsp; Data acquisition</h2>
+
+<h3>5.1 &nbsp; Deterministic 100 Hz sampling</h3>
+
+<p>A hardware timer fires every 10,000&nbsp;&micro;s and does exactly one thing: release a binary semaphore.
+A FreeRTOS task pinned to core 0 at maximum priority takes that semaphore and performs the I2C burst.</p>
+
+<!--CODE:firmware/wand_infer/wand_infer.cpp:cpp:imuTask-->
+
+<p>The division of labour matters more here than it did with the MPU-6050. The 26-byte burst at 100&nbsp;kHz
+is a blocking transaction of roughly 2.4&nbsp;ms — nearly a quarter of the sample period. Performing that
+inside the ISR would block every other interrupt on the core for the whole time. The ISR does the one thing
+an interrupt handler should do, and the task does the work.</p>
+
+<h3>5.2 &nbsp; One burst, one fusion frame <span class="r3">R3</span></h3>
+
+<!--CODE:firmware/common/bno055_fusion.cpp:cpp:read-->
+
+<p>Reading gyro, quaternion and linear acceleration in <em>one</em> transaction is not merely faster than
+three. It guarantees that every channel in a sample comes from the same fusion frame. With three separate
+reads the quaternion and the acceleration can straddle a frame boundary, producing a skew that varies with
+bus timing and cannot be corrected afterwards — and in a representation where acceleration is
+<em>rotated by</em> the quaternion, a one-frame skew is not a small error, it is a rotation applied to the
+wrong vector.</p>
+
+<p>The six Euler bytes sit in the middle of the address range and so cannot be skipped in a burst. They are
+read and discarded; paying 0.5&nbsp;ms for them is cheaper than splitting the transaction.</p>
+
+<h3>5.3 &nbsp; Three data-quality gates the sensor swap made necessary</h3>
+
+<p><strong>Gyro calibration status.</strong> The fusion's continuously-estimated gyro bias is what replaced
+the software bias subtraction. Below <code>CALIB_STAT</code> gyro level 3 that estimate is not trustworthy,
+and every capture taken there is quietly wrong with nothing to indicate it. The firmware therefore refuses to
+arm until the level reaches 3 and shows the progress on the OLED, which turns an invisible precondition into
+something the caster can see and wait for.</p>
+
+<!--CODE:firmware/common/bno055_fusion.cpp:cpp:gyroCalib-->
+
+<p><strong>Duplicate fusion frames.</strong> The BNO055's fusion output is also 100&nbsp;Hz, but its clock is
+not phase-locked to ours, so the two beat against each other and a frame is occasionally read twice. This is
+harmless — at most one sample period of sample-and-hold, far below the noise floor once the gesture is
+resampled to 64 steps — but it is counted, because a <em>high</em> duplicate rate means something else is
+wrong: a stalling bus, or the chip having fallen out of fusion mode.</p>
+
+<p><strong>A quaternion that never moves.</strong> If the chip drops back to CONFIG mode, or is left in a
+non-fusion mode, the quaternion registers read constant or zero. The tensor would still have the right shape,
+the model would still train, and four of its twelve input channels would simply be dead. Nobody would notice.
+The collection script rejects any capture whose quaternion does not change.</p>
+
+<!--CODE:training/collect.py:py:validate-->
+
+<h3>5.4 &nbsp; Segmentation, and why the pre-roll matters twice as much now</h3>
+
+<p>The trigger button defines the gesture window: press and hold, cast, release. Behind it a 320-sample
+circular buffer runs continuously so the window can be extended <em>backwards</em> in time.</p>
+
+<p>In R2 the pre-roll existed for one reason: casters begin moving fractionally before their thumb lands, and
+without it the first fraction of every gesture is clipped — consistently, in training and inference alike, so
+nothing ever looks broken. The model simply learns a truncated gesture.</p>
+
+<p>In R3 it carries a second and heavier load. <strong>Sample 0 of the window is the anchor for the entire
+orientation representation.</strong> Every quaternion channel, and the frame that acceleration and angular
+rate are expressed in, is defined relative to it. It therefore needs to be taken while the caster is still
+holding their resting grip, not mid-motion, and the 200&nbsp;ms pre-roll is what guarantees that.</p>
+
+<h3>5.5 &nbsp; Collection protocol: manufacturing variation deliberately</h3>
+
+<p>Left to themselves, people converge on one comfortable way of performing a gesture within about five
+repetitions. A dataset with one style per caster is precisely the overfitting the invariance test is designed
+to expose, so the collection script randomises the prompt for every repetition.</p>
+
+<!--CODE:training/collect.py:region:prompts-->
+
+<table>
+<tr><th>Axis of variation</th><th>Levels</th><th>What it defends against</th></tr>
+<tr><td>Speed</td><td>slow / normal / fast</td><td>Judges cast at their own tempo, not yours</td></tr>
+<tr><td>Grip</td><td>standard / rolled wrist / fingertip</td><td>The dominant between-person difference; anchoring does <em>not</em> remove it (§7.4)</td></tr>
+<tr><td>Pose</td><td>standing / seated / arm extended</td><td>Changes the resting orientation the anchor is taken from</td></tr>
+<tr><td>Caster</td><td>5 team members + 1 held out entirely</td><td>Leave-one-caster-out validation (§9.1)</td></tr>
+</table>
+
+<h4>Dataset budget</h4>
+
+<p>Target: 5 casters &times; 5 spells &times; 15 repetitions = 375 spell captures, plus 5 &times; 30 = 150
+NOISE captures, for 525 total. At roughly 8 seconds per capture including the prompt, that is about 70
+minutes of pure recording. A sixth person's data is collected but never used for training, and serves as a
+final untouched hold-out.</p>
+
+<p>The NOISE script is drawn directly from the problem statement's own list of false-positive behaviours,
+plus two additions that matter more than any of them: half-completed spells, and casts begun and abandoned.
+Those are what a nervous judge actually produces, and no unsupervised outlier criterion will ever catch them,
+because a half-completed Lumos is a perfectly normal-looking signal that simply stops early.</p>
+
+<div class="callout warn">
+<span class="lab">Noise has to be collected the same way spells are</span>
+Every NOISE capture is recorded with the trigger deliberately held down through the behaviour. Leaving the
+logger running and calling whatever it records "noise" produces nothing usable, because the trigger is what
+defines a window — and the false positives that actually matter are the ones where a judge <em>did</em> press
+the button and then did something that was not a spell.
+</div>
+
+<h3>5.6 &nbsp; The collection firmware, and one wire format <span class="r3">R4</span></h3>
+
+<p><code>firmware/wand_logger/</code> shares the sampler, the driver and every constant with the demo
+firmware. That is a requirement rather than a convenience: the model is trained on what the logger writes to
+the serial port and runs on what <code>wand_infer.cpp</code> reads out of its ring buffer, so any difference
+between the two is a distribution shift that no downstream test can see.</p>
+
+<p>The CSV it emits is the contract. <code>training/collect.py</code> parses exactly this and nothing else,
+and <code>parity_host</code> reads the same rows back — change one column here and three other files are
+wrong with no compiler to say so.</p>
+
+<!--CODE:firmware/wand_logger/wand_logger.cpp:cpp:emit-->
+
+<p>The command channel runs the other way and is the same kind of contract:
+<code>collect.py</code> already sends <code>SET label=&lt;n&gt; caster=&lt;name&gt;</code>, so the firmware
+parses that rather than inventing a scheme of its own. A mismatch there does not fail — it files every capture
+under the wrong label, quietly, and the first symptom is a confusion matrix nobody can explain.</p>
+
+<h2 class="newpage">6 &nbsp; The signal processing chain</h2>
+
+<p>The chain converts a variable-length raw integer stream into a fixed 64&times;12 float tensor. It is
+implemented twice — once in Python as the reference, once in C++ for the device — and the two are asserted
+equal to 10<sup>&minus;3</sup> by an automated test (§9.2).</p>
+
+<h3>6.1 &nbsp; What the sensor already did, and why we let it <span class="r3">R3</span></h3>
+
+<p>Three stages that R2 performed in software are gone. The BNO055's Cortex-M0 removes gyro bias
+continuously, runs a Kalman-class orientation estimator, and subtracts gravity — all three better than a
+100&nbsp;Hz complementary filter written by us, and all three for free in terms of ESP32 cycles.</p>
+
+<p>The advice we were given was the opposite: put the chip in AMG (non-fusion) mode so the existing chain
+would not subtract gravity twice. The hazard is real — double subtraction produces no error message anywhere
+— but disabling the fusion is the wrong resolution. Three things are gained by deleting our chain instead:</p>
+
+<ul>
+<li><strong>Latency.</strong> The complementary filter and gravity projection cost roughly 920 transcendental
+calls per gesture, about 2.5&nbsp;ms on Xtensa. The R3 chain contains no transcendental function at all on
+the hot path except the two <code>sqrtf</code> calls per sample for the magnitudes.</li>
+<li><strong>Correctness.</strong> Our filter recovered roll and pitch only; yaw is unobservable from
+accelerometer and gyroscope alone in that formulation. The chip's estimator produces a full quaternion.</li>
+<li><strong>Risk.</strong> The complementary filter's initialisation is, on the evidence of our own negative
+control (§9.2), the single easiest thing in this project to get subtly wrong. Deleting it deletes that risk.</li>
+</ul>
+
+<p>What we give up is accelerometer range: AMG mode would permit &plusmn;16&nbsp;g, fusion locks &plusmn;4&nbsp;g.
+That trade is examined honestly in §8.3, and the conclusion is that clipping a thrust does not make it less
+distinguishable — it makes it <em>more</em> so, because no other class saturates.</p>
+
+<h3>6.2 &nbsp; Step 1: raw counts to physical units</h3>
+
+<!--CODE:training/preprocess.py:py:to_physical-->
+
+<h3>6.3 &nbsp; Step 2: anchoring — the idea the whole representation rests on <span class="r3">R3</span></h3>
+
+<p>The chip reports linear acceleration and angular rate in the <em>sensor body frame</em> — a frame that
+rotates with the wand as the gesture is performed. That is the natural output and it is also the problem: a
+constant push in the world appears as a time-varying signal in a spinning frame, so translation and rotation
+arrive at the network tangled together, and the network has to spend capacity disentangling them before it
+can start recognising anything.</p>
+
+<p>Because we also have the orientation, we can undo that. Define</p>
+
+<pre>q_rel[i] = conj(q[0]) &otimes; q[i]
+
+a_anchored[i] = rotate(q_rel[i], a_body[i])
+&omega;_anchored[i] = rotate(q_rel[i], &omega;_body[i])</pre>
+
+<p>and every quantity is now expressed in the single fixed frame the wand occupied at sample 0. Channels 0–2
+become pure translation in a frame that does not spin; channels 3–9 carry the rotation, explicitly and
+separately. The two are decoupled.</p>
+
+<!--CODE:training/preprocess.py:py:anchor-->
+
+<p>There is a useful side effect. <code>q_rel[0]</code> is the identity by construction, so channel 6 always
+starts at exactly 1.0 and channels 7–9 at exactly 0.0. Every gesture begins at the same point in the
+representation, and the convolutions only ever have to model the <em>departure</em> from it. That fixed
+starting point is relied on downstream: the augmentation pipeline re-establishes it after every transform
+(§7.4), and a unit test asserts the channel layout that makes it meaningful.</p>
+
+<div class="callout">
+<span class="lab">What anchoring does and does not buy — stated precisely</span>
+Anchoring removes <strong>which way the caster was facing</strong>. It does <strong>not</strong> remove
+<strong>how they were holding the wand</strong>, because the anchor rotates with the grip: a caster whose
+wrist is rolled 30&deg; further has an anchor rolled 30&deg; further too. Grip variation is handled separately,
+by the augmentation in §7.4, and the two mechanisms are complementary rather than redundant. It would be easy
+to overclaim here and we are not going to — the invariance test will be run by people whose grips we have
+never seen.
+</div>
+
+<h3>6.4 &nbsp; Quaternion sanitising: three hazards that all look like valid data</h3>
+
+<!--CODE:training/preprocess.py:py:sanitise_quaternions-->
+
+<p>The hemisphere continuity pass is the one that would be easiest to omit and hardest to debug. A quaternion
+double-covers rotations — <em>q</em> and &minus;<em>q</em> are the same orientation — and the chip is free to
+return either. Without the continuity pass, channels 6–9 contain sign discontinuities that look like
+instantaneous 360-degree rotations, and no convolution can learn through that. Our negative control for this
+exact omission produced a parity divergence of 1.92, roughly two thousand times the tolerance (§9.2).</p>
+
+<h3>6.5 &nbsp; Steps 3 and 4: resampling and normalisation</h3>
+
+<!--CODE:training/preprocess.py:py:resample_fixed-->
+
+<p>Resampling produces speed invariance: a 0.6-second Lumos and a 1.4-second Lumos both become 64 steps, so
+the network sees the <em>shape</em> of the trajectory and is structurally blind to how fast the judge happened
+to wave. Interpolation is in index space rather than time space, because the logger already guarantees a
+uniform 10&nbsp;ms grid and index space reduces to two multiplies and an add in C++, with no floating-point
+time accumulation that could diverge between implementations.</p>
+
+<p>The quaternion channels are interpolated linearly rather than by slerp, and deliberately not renormalised
+afterwards. Between adjacent 100&nbsp;Hz samples the rotation is under a degree, where lerp and slerp differ
+by less than 10<sup>&minus;5</sup>; a renormalisation step would be one more place for the two chains to
+disagree, in exchange for a correction smaller than the sensor noise.</p>
+
+<!--CODE:training/preprocess.py:py:normalise-->
+
+<p>Normalisation is deliberately not a per-sample z-score. Amplitude is a real discriminative feature here —
+Stupefy is a hard ballistic thrust and Wingardium Leviosa is a gentle swish, and z-scoring makes them look
+alike — and a per-sample statistic would force the MCU to buffer the gesture, compute mean and variance, and
+walk it again. Fixed divisors are one multiply per sample.</p>
+
+<h4>The divisor that was derived with the sign the wrong way round <span class="r3">R4</span></h4>
+
+<p>R3 set <code>NORM_ACC_LIN = 3.0</code> and wrote a unit test asserting it, on this reasoning: the fusion
+locks the accelerometer to &plusmn;4&nbsp;g, gravity consumes one of them, therefore 3&nbsp;g is the ceiling.
+The reasoning is confident, it has an assertion behind it, and it is wrong. Gravity is <em>subtracted</em> by
+the fusion, not spent from the budget. The rail applies to the raw signal, before that subtraction:</p>
+
+<pre>lin_axis  =  raw_axis  &minus;  g_axis,     raw_axis &isin; [&minus;4, +4] g,   g_axis &isin; [&minus;1, +1] g
+          &rArr;  lin_axis &isin; [&minus;5, +5] g</pre>
+
+<p>So the reportable range is the rail <em>plus</em> one gravity. The measured per-axis maximum across the
+bootstrap corpus is <strong>exactly 5.00&nbsp;g</strong> &mdash; the arithmetic above, reached and not
+exceeded, which is as clean a confirmation as this kind of derivation gets.</p>
+
+<p>This mattered. At 3.0 the tensor railed on <strong>2.4% of all samples</strong>, and not at random: the
+samples that clip are the peaks of the sharp flicks, which is the part of the trace that identifies Alohomora
+and Wingardium Leviosa. The divisor is now 5.0 &mdash; a hard physical bound, so nothing clips and no int8
+code is spent on a value the sensor cannot produce &mdash; and railing fell to 0.08%. The unit test was
+rewritten to assert the corrected relationship, and it is worth noting that the old test <em>passed</em>
+throughout: an assertion is only as good as the derivation behind it, and this one had been guarding the wrong
+inequality with complete conviction.</p>
+
+<p>The gyro divisor was re-examined in the same pass and deliberately left alone. The corpus reaches only 0.43
+of <code>NORM_GYRO</code> at the 99th percentile, so tightening it to 9 or 10 would buy ~20% more int8
+resolution on the quiet part of every gesture. It would buy that by railing the samples out at the tail
+&mdash; which are the peaks of the flicks, and the presence and sharpness of a terminal flick is the entire
+difference between Alohomora and Lumos. Measured, considered, unchanged.</p>
+
+<h3>6.6 &nbsp; The resulting tensor</h3>
+
+<table>
+<tr><th class="num">Ch</th><th>Name</th><th>Frame</th><th>Divisor</th><th>Role</th></tr>
+<tr><td class="num">0–2</td><td>a<sub>x</sub>, a<sub>y</sub>, a<sub>z</sub> linear</td><td>anchored</td><td>5.0 g</td><td>Pure translation, gravity removed by the sensor</td></tr>
+<tr><td class="num">3–5</td><td>&omega;<sub>x</sub>, &omega;<sub>y</sub>, &omega;<sub>z</sub></td><td>anchored</td><td>12.0 rad/s</td><td>Rotation rate, bias removed by the fusion</td></tr>
+<tr><td class="num">6–9</td><td>q<sub>w</sub>, q<sub>x</sub>, q<sub>y</sub>, q<sub>z</sub> relative</td><td>—</td><td><em>none</em></td><td>The orientation trajectory itself. A loop <em>is</em> a path through orientation space.</td></tr>
+<tr><td class="num">10</td><td>|a<sub>lin</sub>|</td><td>invariant</td><td>5.0 g</td><td>Rotation-invariant translational envelope</td></tr>
+<tr><td class="num">11</td><td>|&omega;|</td><td>invariant</td><td>12.0 rad/s</td><td>Rotation-invariant rotational envelope</td></tr>
+</table>
+
+<p>The quaternion channels need no divisor at all: a unit quaternion already lives in [&minus;1,&nbsp;1] on
+every component. That is a small but real bonus of carrying orientation as a quaternion rather than as Euler
+angles (which wrap) or a rotation vector (which folds at 180&deg;, exactly where a Lumos loop passes).</p>
+
+<p>Channels 10 and 11 are not redundant with the others. They are invariant under a change of grip, whereas
+channels 0–9 all transform under it. During augmentation the vector channels are rotated and the quaternion
+is conjugated while these two are left untouched, which gives the network a stable backbone to attach the
+transforming channels to.</p>
+
+<h2 class="newpage">7 &nbsp; The TinyML model</h2>
+
+<h3>7.1 &nbsp; Architecture</h3>
+
+<!--CODE:training/train_cnn.py:py:build_model-->
+
+<table>
+<tr><th>Layer</th><th>Output</th><th class="num">Params</th><th>Reasoning</th></tr>
+<tr><td>Input</td><td>64 &times; 12</td><td class="num">—</td><td>Anchored tensor from §6</td></tr>
+<tr><td>Conv1D 16, k=5, s=2</td><td>32 &times; 16</td><td class="num">960</td><td>A 5-sample kernel spans 50 ms, roughly the shortest meaningful wrist event. The stride halves the sequence immediately: the fusion's own bandwidth limit leaves little real content above 25 Hz, so the upper half of the spectrum is noise we would be paying to convolve. This single stride is the largest latency saving in the network.</td></tr>
+<tr><td>SeparableConv1D 32, k=3</td><td>32 &times; 32</td><td class="num">560</td><td>Depthwise then pointwise: 3&times;16 + 16&times;32 = 560 multiplies per step against 1,536 for a dense Conv1D — a 2.7&times; saving at negligible accuracy cost at this scale.</td></tr>
+<tr><td>MaxPool 2</td><td>16 &times; 32</td><td class="num">—</td><td>Halves the sequence; widens the effective receptive field</td></tr>
+<tr><td>SeparableConv1D 32, k=3</td><td>16 &times; 32</td><td class="num">1,120</td><td>Second stage; receptive field now covers most of the gesture</td></tr>
+<tr><td>MaxPool 2</td><td>8 &times; 32</td><td class="num">—</td><td>—</td></tr>
+<tr><td>Flatten</td><td>256</td><td class="num">—</td><td>See §7.2 — a load-bearing choice</td></tr>
+<tr><td>Dropout 0.3 &rarr; Dense 16 &rarr; Dropout 0.2</td><td>16</td><td class="num">4,112</td><td>Compression before the classifier. The dataset will be ~600 captures; without aggressive dropout the network memorises casters.</td></tr>
+<tr><td>Dense 6, softmax</td><td>6</td><td class="num">102</td><td>Five spells plus NOISE</td></tr>
+<tr><td colspan="2"><strong>Total (incl. BatchNorm statistics)</strong></td><td class="num"><strong>7,174</strong></td><td><strong>22,520 bytes as an int8 flatbuffer</strong></td></tr>
+</table>
+
+<p>Growing the input from 8 to 12 channels cost 320 parameters and 5,120 MAC operations — about 8% of the
+network. That is the entire price of carrying the orientation trajectory, and it is a bargain.</p>
+
+<h3>7.2 &nbsp; Flatten rather than global average pooling</h3>
+
+<p>Most TinyML classifiers of this size end in global average pooling, which would have saved 4,096 weights.
+It was rejected deliberately. Pooling discards <em>when</em> each feature occurred, and when is exactly what
+separates Alohomora (backward loop, <em>then</em> flick) from Wingardium Leviosa (lateral swish, <em>then</em>
+flick): both contain a broad sweep and a terminal flick, differing in order, direction and relative timing. A
+pooled representation sees "one sweep, one flick" for both; a flattened one retains the ordering across the
+eight remaining time steps.</p>
+
+<p>The cost is 4,096 additional int8 weights, which on a chip with 520&nbsp;KB of SRAM is not a real cost.
+This is a concrete instance of a general principle in this design: spend memory, which is abundant, to protect
+accuracy and latency, which are not.</p>
+
+<h3>7.3 &nbsp; Training regime</h3>
+
+<!--CODE:training/train_cnn.py:py:compile_model-->
+
+<p><strong>Label smoothing at &epsilon; = 0.05</strong> prevents the network driving its softmax to 1.0 on the
+training casters. Over-confidence is not cosmetic: an over-confident model is confidently <em>wrong</em> on an
+unseen hand, and it makes every rejection threshold useless because all probabilities land above whatever
+value you pick. §8.4 documents the concrete consequence and how it is handled.</p>
+
+<!--CODE:training/train_cnn.py:py:class_weights-->
+
+<p><strong>Class weighting</strong> is inverse-frequency with the NOISE weight nudged up a further 1.25. That
+extra factor encodes the scoring asymmetry directly into the loss: under this problem statement a missed spell
+scores nothing while a misfire is penalised, so the training objective should not treat the two errors as
+equal.</p>
+
+<h3>7.4 &nbsp; Augmentation as manufactured invariance <span class="r3">R3</span></h3>
+
+<p>With five casters there are five hand-writing styles in the dataset. The judges will be a sixth, seventh
+and eighth. That gap cannot be collected away in the time remaining, so augmentation manufactures the
+between-caster variation that could not be recorded. Every transform is physically exact rather than generic
+noise — an augmentation that produces impossible signals teaches the network to separate real from impossible
+instead of Lumos from Alohomora.</p>
+
+<!--CODE:training/augment.py:py:grip_rotation-->
+
+<p>The conjugation is the part worth being careful about, and it is new in R3. <code>q_rel</code> is a
+rotation expressed in the anchored frame, and rotating the frame itself is a change of basis, which for
+rotations is conjugation — not a left-multiply. Left-multiplying, the obvious-looking mistake, would compose
+an extra rotation <em>into</em> the gesture and produce trajectories no wrist could perform, and the network
+would learn to detect the difference between real and augmented instead of the difference between spells.</p>
+
+<h4>Keeping the tensor internally consistent</h4>
+
+<p>Two further R3 subtleties, both of which would produce a self-contradictory tensor if ignored:</p>
+
+<p><strong>Scaling the rate without scaling the orientation.</strong> If the magnitude augmentation multiplies
+the angular-rate channels by 1.2 but leaves the quaternion channels alone, channels 3–5 describe a rotation
+that channels 6–9 do not perform. The network would happily learn to detect <em>that</em> contradiction. So
+the relative quaternion's rotation angle is scaled by the same factor, about the same axis.</p>
+
+<p><strong>Moving the anchor.</strong> A negative time shift drops early samples, so the new first sample is
+no longer the identity and the invariant that every real tensor satisfies is broken. Rather than forbidding
+the transform, a re-anchoring step runs once at the end of the pipeline and restores it.</p>
+
+<!--CODE:training/augment.py:py:reanchor-->
+
+<table>
+<tr><th>Transform</th><th>Range</th><th>Models</th></tr>
+<tr><td>Grip rotation</td><td>&plusmn;25&deg; about the wand axis, &plusmn;10&deg; off-axis</td><td>Grip styles and wrist roll — the part anchoring does <em>not</em> remove</td></tr>
+<tr><td>Non-uniform time warp</td><td>4 knots, &sigma; = 0.18, endpoints pinned</td><td>Personal rhythm within a gesture. Uniform speed change is already removed by the resample, so only non-uniform warping is meaningful.</td></tr>
+<tr><td>Magnitude scale</td><td>0.82–1.20, independent for accel and gyro, quaternion angle scaled to match</td><td>How forcefully and how widely the caster performs</td></tr>
+<tr><td>Time shift</td><td>&plusmn;5 samples, edge-padded, then re-anchored</td><td>Trigger-timing variance</td></tr>
+<tr><td>Sensor noise + residual bias</td><td>&sigma;<sub>a</sub>=0.006, &sigma;<sub>&omega;</sub>=0.004, &sigma;<sub>q</sub>=0.004, bias &sigma;=0.006</td><td>The fusion's own orientation estimation error, which grows while gyro calibration is imperfect. Training with it present is what makes the network tolerant of a sensor that has only just reached calibration status 3 — which, in a demo queue, it will have.</td></tr>
+</table>
+
+<h3>7.5 &nbsp; Int8 quantisation, and what it actually cost</h3>
+
+<!--CODE:training/train_cnn.py:py:quantise-->
+
+<p>Full-integer quantisation with int8 input <em>and</em> output was chosen over float16 or dynamic-range for
+three reasons: TFLM's int8 kernels run several times faster than float on the Xtensa LX6; int8 input means
+the firmware never allocates a float input buffer, because preprocessing writes quantised bytes straight into
+the arena; and weights are four times smaller, which here is a bonus rather than the point.</p>
+
+<p>A twelve-channel tensor raises a legitimate concern that eight channels did not. TFLite uses a single
+<em>per-tensor</em> scale for the input, and the quaternion channels use the full [&minus;1,&nbsp;1] range
+while the anchored acceleration channels are much smaller — so the acceleration channels could in principle
+be crushed to a handful of quantisation levels. We measured it rather than assuming either way:</p>
+
+<table>
+<tr><th>Metric</th><th class="num">Value</th><th>Reading</th></tr>
+<tr><td>Input scale / zero point</td><td class="num">0.007736 / &minus;2</td><td>259 levels across [&minus;1, 1]</td></tr>
+<tr><td>Worst channel resolution</td><td class="num">58 levels</td><td><code>wz_anch</code>; every other channel gets 60–232</td></tr>
+<tr><td>float argmax accuracy</td><td class="num">1.000</td><td rowspan="2">Quantisation costs <strong>nothing</strong> here. The concern was real and did not materialise.</td></tr>
+<tr><td>int8 argmax accuracy</td><td class="num">1.000</td></tr>
+</table>
+
+<p>The evaluation is deliberately run against the <em>quantised</em> model, because that is the artefact that
+ships. A float model at 92% and an int8 model at 86% is a six-point surprise that belongs in a lab, not on a
+stage.</p>
+
+<div class="callout warn">
+<span class="lab">The representative dataset is not a formality</span>
+It is what fixes the activation scales. Feeding it synthetic or augmented-only data sets scales that do not
+match what the sensor actually produces; the model then saturates on the device while looking perfect in
+Python, with no error anywhere. When real captures land, the representative dataset must be regenerated from
+them — this is a step it is very easy to skip.
+</div>
+
+<h2 class="newpage">8 &nbsp; False-positive rejection: the Muggle Movement defence</h2>
+
+<h3>8.1 &nbsp; Why a trained NOISE class, and not a confidence threshold</h3>
+
+<p>The obvious approach — train on four spells and reject anything below a softmax threshold — fails for a
+structural reason rather than a tuning reason. A softmax over four classes must sum to one. Shown a shrug,
+such a network has no way to express "none of these"; it is forced to distribute its belief across four
+spells, and it frequently lands on one of them with high confidence. No threshold fixes this, because the
+problem is that the model has nowhere to put the probability mass.</p>
+
+<p>Giving NOISE its own trained output gives the network somewhere to put it. The difference is between a
+threshold hack applied to a model that cannot represent the concept, and a classifier that has actually
+learned what "not a spell" looks like — including what a half-completed spell looks like, which no
+unsupervised outlier criterion will ever catch.</p>
+
+<h3>8.2 &nbsp; The five-stage cascade</h3>
+
+<p>Stages are ordered cheapest first: there is no reason to spend milliseconds of inference establishing that
+someone scratched their nose. Every stage can only ever turn a fire into a no-fire; none can invent a cast.</p>
+
+<table>
+<tr><th class="num">Stage</th><th>Mechanism</th><th class="num">Cost</th><th>Catches</th></tr>
+<tr><td class="num">0</td><td>Hold-to-record trigger</td><td class="num">~0</td><td>Everything the caster did not deliberately mark as a cast</td></tr>
+<tr><td class="num">1</td><td>Kinematic plausibility</td><td class="num">~5 &micro;s</td><td>Scratching, pacing, impacts, implausible durations</td></tr>
+<tr><td class="num">2</td><td>Trained NOISE class</td><td class="num">~2–5 ms</td><td>Gesture-shaped motion that is not a spell; aborted casts</td></tr>
+<tr><td class="num">3</td><td>Calibrated confidence floor and top-1/top-2 margin</td><td class="num">~2 &micro;s</td><td>Ambiguity between similar spells</td></tr>
+<tr><td class="num">4</td><td>Temporal persistence <span class="small">(auto-segment mode only)</span></td><td class="num">2 windows</td><td>Single-frame flukes from a sliding window</td></tr>
+<tr><td class="num">5</td><td>500 ms refractory period</td><td class="num">~1 &micro;s</td><td>Double-casting from a bounced trigger</td></tr>
+</table>
+
+<p><strong>The free-fall detector from R2 is gone, deliberately.</strong> In fusion mode a dropped wand's
+free-fall signature is not visible: linear acceleration is the raw reading minus the fusion's gravity
+estimate, and that estimate coasts during a fall, so a falling wand reports about 1&nbsp;g of linear
+acceleration rather than zero. Reinstating it would have meant reading the gravity vector as well, adding six
+bytes and a register to every sample. It was removed instead, because two things already cover the case: a
+hold-to-record trigger means a dropped wand releases the button and ends its own capture, and the impact at
+the end of a drop is exactly the impulse the new spike test catches.</p>
+
+<h4>Stage 1 in full</h4>
+
+<!--CODE:firmware/wand_infer/reject.cpp:cpp:gateKinematics-->
+
+<h4>Stages 2 and 3</h4>
+
+<!--CODE:firmware/wand_infer/reject.cpp:cpp:judgeProbs-->
+
+<h3>8.3 &nbsp; Five defects in one subsystem, found and fixed before any data existed</h3>
+
+<p>Stage 1 is forty lines of comparisons and it has now been wrong five separate times. That is not a comment
+on the people who wrote it; it is what a threshold does when it is chosen by reasoning about a signal instead
+of measuring one. Each fix is below, in the order they were found.</p>
+
+<p><strong>Defect 1 — the bonus spell was unreachable (R2).</strong> The first plausibility gate applied a
+single peak-rotation floor and rejected <strong>100% of Stupefy</strong>, because Stupefy is defined as a
+thrust that barely rotates. The property that makes it a good bonus spell was exactly what the gate threw
+away, and the network never saw one. On the bench this looks like a model that cannot learn Stupefy.</p>
+
+<p>The fix is a disjunction rather than a conjunction: a window is plausible if it is rotationally energetic
+<em>or</em> ballistically energetic. Scratching and pacing are neither, which is what keeps the pair
+separable.</p>
+
+<p><strong>Defect 2 — the impact test was unreachable (R3).</strong> With the MPU-6050 at &plusmn;8&nbsp;g, a
+7.5&nbsp;g table knock was separable from a 3&nbsp;g cast by magnitude alone. The BNO055's fusion locks the
+accelerometer at &plusmn;4&nbsp;g, so a knock and a hard Stupefy <em>both</em> saturate near 3&nbsp;g. In our
+bootstrap corpus <strong>65% of Stupefy captures reach the ceiling.</strong> Magnitude can no longer separate
+them.</p>
+
+<p>Duration can, and always could. A collision reaches the spike level for one or two samples and is gone; a
+thrust holds it for tens. The test became: <em>a window is an impact if it reaches the spike level but never
+holds it.</em></p>
+
+<p><strong>Defect 3 — the replacement test, chosen by intuition, rejected 9% of Stupefy.</strong> Having
+designed a better test we then set its two constants by feel (2.40&nbsp;g, 4 samples) and made the same class
+of error a third time. Sweeping the pair moved it to 2.00&nbsp;g, where it rejected no spells at all and
+caught five times as much noise. The intuitive setting had been worse on <em>both</em> axes simultaneously.
+That is the argument for sweeping rather than guessing, in one line.</p>
+
+<p><strong>Defect 4 — that sweep's grid stopped below the answer <span class="r3">R4</span>.</strong> The
+sweep ran levels from 1.6&nbsp;g to 2.4&nbsp;g, because R3 believed 3&nbsp;g was the physical ceiling. Once
+§6.5 corrected the reportable range to 5&nbsp;g, that ceiling turned out to be <em>inside</em> the search space
+rather than outside it &mdash; and a sweep whose grid stops short does not report that it stopped short. It
+reports a winner, with the same confident formatting as a sweep that searched the whole space. The grid now
+runs to 4.4&nbsp;g and the selection rule takes a small budget of spell loss rather than demanding exactly
+zero, because with realistic lever-arm physics a gentle cast from a light-handed caster genuinely lands near
+the threshold and a hard zero-loss constraint just picks whichever corner of the grid happens to be
+degenerate.</p>
+
+<table>
+<tr><th class="num">spike level</th><th class="num">min run</th><th class="num">spell false-rejection</th><th class="num">noise caught</th><th></th></tr>
+<tr><td class="num">2.0 g</td><td class="num">2</td><td class="num">0.6%</td><td class="num">15.6%</td><td>too narrow to catch a knock's ring-down</td></tr>
+<tr><td class="num">2.0 g</td><td class="num">3</td><td class="num" style="color:#1f5c23"><strong>0.7%</strong></td><td class="num" style="color:#1f5c23"><strong>49.6%</strong></td><td><strong>chosen</strong></td></tr>
+<tr><td class="num">2.0 g</td><td class="num">4</td><td class="num">1.3%</td><td class="num">45.2%</td><td>the R3 setting — now dominated</td></tr>
+<tr><td class="num">2.8 g</td><td class="num">3</td><td class="num">2.0%</td><td class="num">55.2%</td><td>buys 6 points of noise for 3&times; the spell loss</td></tr>
+<tr><td class="num">4.4 g</td><td class="num">2</td><td class="num">0.0%</td><td class="num">27.0%</td><td>the only <em>exactly</em>-zero-loss point, and much worse</td></tr>
+</table>
+
+<p><strong>Defect 5 — the energy gate was strictly dominated <span class="r3">R4</span>.</strong> The three
+energy floors had been set from per-feature percentiles, which is the wrong operation for a gate that is a
+<em>disjunction</em>: a Stupefy has almost no swept angle and does not need any, so taking the 1st percentile
+of swept angle over all spells drags the rotational floor down to a value chosen by the one class that never
+uses that arm. Sweeping the triple jointly, and evaluating the disjunction exactly as <code>reject.cpp</code>
+does, showed the R3 setting was not merely suboptimal but dominated:</p>
+
+<table>
+<tr><th class="num">peak &omega;</th><th class="num">path</th><th class="num">peak a</th><th class="num">spell loss</th><th class="num">noise stopped</th><th></th></tr>
+<tr><td class="num">3.20</td><td class="num">1.80</td><td class="num">1.50</td><td class="num">0.9%</td><td class="num">16.7%</td><td>the sweep's argmax</td></tr>
+<tr><td class="num">2.20</td><td class="num">1.00</td><td class="num">1.80</td><td class="num" style="color:#b00">2.0%</td><td class="num">14.4%</td><td>the R3 setting — dominated by both neighbours</td></tr>
+<tr><td class="num">0.90</td><td class="num">0.30</td><td class="num">1.00</td><td class="num" style="color:#1f5c23"><strong>0.0%</strong></td><td class="num" style="color:#1f5c23"><strong>11.1%</strong></td><td><strong>chosen</strong></td></tr>
+</table>
+
+<p>The chosen point is <em>not</em> the sweep's argmax, and that is a deliberate override worth defending. The
+entire gate is worth at most 17 points of noise, every point beyond about 11 of them costs real casts, and the
+two outcomes are not commensurate: a stopped noise window saves five milliseconds of inference that were
+available anyway, while a rejected spell is a lost point in front of a judge with no recourse. So the gate's
+job description was narrowed to the thing it is actually good at &mdash; deciding whether anything happened at
+all &mdash; and everything else was handed to Stage 2, which is a trained network with a real NOISE class and
+is far better at this than three scalars can be.</p>
+
+<p>That narrowing exposed a gap in the corpus, incidentally: at 0.90/0.30/1.00 the gate initially stopped
+<em>nothing</em>, because every synthetic noise behaviour was energetic. The missing case was the one the gate
+exists for &mdash; the trigger pressed with nothing behind it, a fumbled button, a caster steadying themselves
+&mdash; so a physiological-tremor noise class was added, and the 11.1% is that class being caught.</p>
+
+<p>Gate performance after all five fixes:</p>
+
+<table>
+<tr><th>Class</th><th class="num">Passes Stage 1</th><th>Rejection reasons</th></tr>
+<tr><td>Alohomora, Wingardium Leviosa</td><td class="num" style="color:#1f5c23"><strong>100%</strong></td><td>none</td></tr>
+<tr><td>Lumos, Stupefy</td><td class="num" style="color:#1f5c23"><strong>99%</strong></td><td>impact 1% — a grazing peak from the gentlest casters</td></tr>
+<tr><td>Expelliarmus</td><td class="num" style="color:#1f5c23"><strong>98%</strong></td><td>impact 2%</td></tr>
+<tr><td>NOISE</td><td class="num">39%</td><td>impact 50%, no motion 11% — <strong>61% stopped before inference</strong></td></tr>
+</table>
+
+<div class="callout good">
+<span class="lab">The principle these five defects establish</span>
+Stage 1 is a cheap pre-filter, not a classifier, and its job description is asymmetric. It must almost never
+reject a real spell, because a rejected spell is a lost point and the network never gets a say; any noise it
+happens to stop is a bonus that saves a few milliseconds. Its thresholds are therefore set from the
+<em>real spell</em> distribution and never from intuition about what noise looks like. Three corollaries the
+five defects add: sweep a gate <em>as it is evaluated</em>, not one feature at a time; make the grid wider
+than you think the answer can be, because a truncated sweep reports a winner rather than a warning; and when
+the sweep's argmax costs recall for a few points of noise, override it and say why.
+</div>
+
+<p><code>training/calibrate.py</code> prints the marginal percentiles for orientation, then sweeps both arms
+of the gate as the firmware actually evaluates them.</p>
+
+<!--CODE:training/calibrate.py:py:sweep_energy_gate-->
+
+<!--CODE:training/calibrate.py:py:sweep_spike_test-->
+
+<h3>8.4 &nbsp; Thresholds are measured, not chosen</h3>
+
+<p>The confidence and margin thresholds started as intuition: 0.80 and 0.25. The diagnostic run that followed
+produced the most useful single result of the bring-up phase — a model that was <strong>100% correct by
+argmax</strong> while the confidence gate discarded more than half of its answers.</p>
+
+<p>The cause is structural. With label smoothing at &epsilon;&nbsp;=&nbsp;0.05 over six classes, the training
+target for the correct class is 1&nbsp;&minus;&nbsp;&epsilon;&nbsp;+&nbsp;&epsilon;/K&nbsp;=&nbsp;0.958, and a
+converged model's honest top-1 probability sits well below that. On the R3 model the highest softmax value
+observed anywhere in the corpus was <strong>0.660</strong>. A threshold of 0.80 is therefore not conservative
+— it is unreachable, and it presents as a broken model.</p>
+
+<p>The response was not to pick a better number by hand but to remove the number from the design. The three
+softmax thresholds now live in <code>shared/wand_thresholds.h</code>, generated by
+<code>training/calibrate.py</code> from the pooled leave-one-caster-out probability distribution, carrying a
+<code>WAND_THRESHOLDS_CALIBRATED</code> flag that a unit test checks. The selection rule encodes the scoring
+asymmetry: highest recall whose out-of-sample misfire rate is still zero, breaking ties toward the larger
+margin, because margin failures are the Lumos/Alohomora confusions and those are the ones a judge will
+reproduce deliberately.</p>
+
+<!--CODE:training/calibrate.py:py:operating_point-->
+
+<h4>The measured effect</h4>
+
+<table>
+<tr><th>Configuration</th><th class="num">&tau;</th><th class="num">margin</th><th class="num">cascade accuracy</th></tr>
+<tr><td>Placeholder thresholds, guessed</td><td class="num">0.55</td><td class="num">0.25</td><td class="num" style="color:#b00">0.452</td></tr>
+<tr><td>Calibrated from the LOCO distribution</td><td class="num">0.300</td><td class="num">0.050</td><td class="num" style="color:#1f5c23"><strong>0.983</strong></td></tr>
+</table>
+
+<p>Same quantised model, same data, same cascade. The entire difference is three constants that were measured
+instead of guessed. The calibration run also reports the operating point it achieved — recall 1.000 at a
+misfire rate of 0.0000 — and stamps the generated header <code>SYNTHETIC CALIBRATION — rerun on real captures
+before the demo</code>, with the calibrated flag left at 0.</p>
+
+<h2 class="newpage">9 &nbsp; Validation methodology</h2>
+
+<h3>9.1 &nbsp; Leave-one-caster-out, and why not a random split</h3>
+
+<p>A random split places repetitions from the same person on both sides of the line, so the model can memorise
+that person's idiosyncratic wrist signature and still look excellent. The judges are strangers. LOCO tests the
+only question that matters — does this work on a hand it has never seen — and it will read several points
+lower than a random split. That lower number is the one worth reporting, because it is the one that can be
+defended when a judge picks up the wand. A sixth caster's data is additionally held out entirely and never
+enters any training or calibration loop, as a check against the LOCO procedure itself having been tuned
+against.</p>
+
+<h3>9.2 &nbsp; The Python/C++ parity harness, and two negative controls</h3>
+
+<p>This is the most valuable test in the repository. Every other bug in this project announces itself: a
+wiring fault gives no I2C device, a bad build flag fails to compile, a bad model gives visibly wrong classes.
+A preprocessing divergence gives none of that. Both chains run clean, the training accuracy is excellent, the
+firmware is fast and stable, and the wand classifies at chance. There is nothing to grep for and no error to
+read.</p>
+
+<div class="callout good">
+<span class="lab">The schedule trick that made this available on day one</span>
+This check is normally described as something you run once the hardware works and real gestures exist — which
+places the project's highest-risk defect at the <em>end</em> of the timeline. But <code>preprocess.cpp</code>
+includes nothing from Arduino: only <code>stdint.h</code> and <code>math.h</code>. So it compiles and runs on
+a laptop, today, against any CSV. The divergence is ruled out before the sensor is even wired.
+</div>
+
+<pre>g++ -O2 -std=c++17 -I../../shared -I../common -o parity_host \
+    parity_host.cpp preprocess.cpp reject.cpp
+
+checked 60 captures
+  worst tensor element difference : 6.321e-06   (synth00_LUMOS_5.csv)
+  worst kinematic difference      : 1.949e-06
+  Stage 1 gate verdict mismatches : 0
+  tolerance                       : 1.0e-03
+PARITY OK -- preprocess.py/.cpp and the Stage 1 gate all agree.</pre>
+
+<p>The agreement is at the level of float32 rounding — two orders of magnitude inside the tolerance — which is
+what it should be, given Python computes in float64 and the firmware in float32.</p>
+
+<h4>A test that has never failed is not yet known to work</h4>
+
+<p>Three negative controls were introduced deliberately, each the most likely real-world version of a mistake
+this design invites. Two were caught immediately. <strong>The third was not</strong>, and that is the more
+useful result:</p>
+
+<table>
+<tr><th>Injected defect</th><th class="num">Divergence</th><th class="num">&times; tol</th><th>Outcome</th></tr>
+<tr><td>Quaternion multiply order reversed<br><span class="small"><code>qMul(q, q0c)</code> instead of <code>qMul(q0c, q)</code></span></td><td class="num">2.23&times;10<sup>&minus;1</sup></td><td class="num">223&times;</td><td>Caught. Quaternion multiplication does not commute, and both orders compile and run — the single most likely typo in this design.</td></tr>
+<tr><td>Hemisphere continuity pass removed</td><td class="num">1.92</td><td class="num">1,920&times;</td><td>Caught. The magnitude is itself diagnostic: very close to 2.0, which is a full sign inversion of a channel spanning [&minus;1,&nbsp;1].</td></tr>
+<tr><td><code>REJ_SPIKE_MIN_RUN</code> off by one in the C++ header only</td><td class="num" style="color:#b00">0</td><td class="num">—</td><td><strong>NOT caught.</strong> Passed clean. See below.</td></tr>
+</table>
+
+<p><strong>What the third control exposed.</strong> The harness compared the tensor and the kinematic
+features, and agreed on every number — correctly, because <code>spike_run</code> is computed against
+<code>REJ_SPIKE_G</code> and <code>REJ_SPIKE_MIN_RUN</code> is consulted only by
+<code>gateKinematics()</code>, which nothing was exercising. A test that covers the inputs to a decision but
+not the decision leaves the whole of Stage 1 free to diverge silently &mdash; the exact failure class the
+harness exists to eliminate, reproduced inside the harness itself.</p>
+
+<p>The fix was to make <code>parity_host</code> link <code>reject.cpp</code> (which, like
+<code>preprocess.cpp</code>, includes nothing from Arduino) and emit the gate verdict as a raw enum value,
+compared against the Python mirror. Integers rather than names, because the C++ names are for an OLED
+(<code>"NO ARC"</code>) and the Python side names the condition (<code>"TOO_SHALLOW"</code>) &mdash; a
+comparison that is insensitive to wording and sensitive to behaviour. Re-run against the same injected defect,
+the harness now reports <code>gate verdict mismatches : 1</code> and names the file.</p>
+
+<p>All three were reverted and parity re-confirmed. The R2 equivalent — a complementary filter seeded from
+zero rather than from the accelerometer — was caught at 7.0&times;10<sup>&minus;2</sup>; that step no longer
+exists to get wrong.</p>
+
+<h3>9.3 &nbsp; Constant and layout parity</h3>
+
+<p>The second silent failure class is a constant drifting between the C++ header and the Python mirror.
+<code>test_config_parity.py</code> parses the headers and asserts every shared value, the class enumeration,
+and the derived constants. Three assertions are specific to R3: that the twelve channels tile the tensor
+exactly once with no gap or overlap; that NOISE remains the <em>last</em> class, since inserting it in the
+middle would silently relabel every gesture recorded before the change; and that
+<code>NORM_ACC_LIN</code> never exceeds what the fusion's locked &plusmn;4&nbsp;g range can physically
+report.</p>
+
+<pre>$ python -m pytest training/test_config_parity.py -q
+..........s
+10 passed, 1 skipped in 0.02s</pre>
+
+<p>The skip is deliberate and informative: it is the assertion that the demo build is not shipping
+uncalibrated thresholds, and it remains a skip until <code>calibrate.py</code> has run against real captures.</p>
+
+<h3>9.4 &nbsp; The synthetic quarantine</h3>
+
+<p>The bootstrap generator is what allowed the entire pipeline — tensor shapes, quaternion anchoring,
+augmentation, the network graph, int8 conversion, the C array export, arena sizing, the parity harness, and
+the threshold calibration path — to be built and proven before any gesture existed.</p>
+
+<p>It is not a dataset, and three independent locks enforce that: output goes only to
+<code>data/synthetic/</code> and the generator refuses any path containing <code>raw</code>; every file
+carries a <code># SYNTHETIC</code> first line and every row a <code>synthetic=1</code> column; and the loader
+refuses to run unless <code>data/raw</code> holds at least 50 genuine captures, or
+<code>--allow-synthetic</code> is passed explicitly — in which case every printed number is prefixed
+<code>SYNTHETIC -- NOT A RESULT</code>.</p>
+
+<!--CODE:training/dataset.py:py:load_dataset-->
+
+<p>The bootstrap corpus produces argmax accuracy of 0.999 &plusmn; 0.003 across the six held-out folds. That
+figure is reported here <em>only</em> as evidence that generated data is trivially separable and therefore
+worthless as a result. It is the same signature — near-perfect scores, near-zero variance — that this project
+has already been misled by once.</p>
+
+<h3>9.5 &nbsp; Making the generator obey the wand's physics, and auditing that it does <span class="r3">R4</span></h3>
+
+<p>Better physics does not make a synthetic corpus into evidence. What it makes it into is a usable
+<em>engineering target</em>: the tensor ranges, the saturation rate, the gate pass rates and the arena size
+become the ones the real wand will produce, so every constant sized against them is sized against something
+real. Everything in §6.5 and §8.3 came out of that change, and none of it was reachable before.</p>
+
+<h4>What the caster commands, and what is derived</h4>
+
+<p>Each spell is now specified as a sequence of <em>angular excursions in radians</em> and <em>hand
+displacements in metres</em>, over named fractions of the gesture duration. There is not a single acceleration
+constant anywhere in the spell definitions, and there must never be one: the moment somebody adds one, the
+accelerometer channel stops being a consequence of the gesture and goes back to being a free parameter.</p>
+
+<!--CODE:training/synth_bootstrap.py:py:_wingardium-->
+
+<p>Both commanded quantities use the <strong>minimum-jerk</strong> profile
+<em>s</em>(<em>u</em>)&nbsp;=&nbsp;10<em>u</em>³&nbsp;&minus;&nbsp;15<em>u</em>⁴&nbsp;+&nbsp;6<em>u</em>⁵
+(Flash &amp; Hogan, 1985), the standard model of human point-to-point limb movement. It is not chosen for
+elegance: its first derivative is zero at both ends, and so is its <em>second</em>. A profile with non-zero
+endpoint acceleration would inject a step into &alpha;, and therefore a discontinuity into the accelerometer
+channel, that no real arm produces and that 100&nbsp;Hz sampling would alias. Specifying rotations as
+excursions also means the rate profile integrates to <em>exactly</em> the requested angle, which is a quantity
+that can be checked against a video of someone casting — as a hand-picked amplitude in counts cannot.</p>
+
+<!--CODE:training/synth_bootstrap.py:py:minjerk_rate-->
+
+<p>Everything the sensor sees then follows from the rigid-body relation of §4.2. Note where the &plusmn;4&nbsp;g
+clip is applied — to the raw signal, <em>before</em> gravity is subtracted, because that is where the chip
+applies it. Clipping the linear channel directly would be wrong by up to 1&nbsp;g and would understate how
+often a hard cast actually saturates.</p>
+
+<!--CODE:training/synth_bootstrap.py:py:synth_capture-->
+
+<p>One detail in there is worth pointing at, because getting it wrong produces a defect that looks exactly
+like a hardware fault. The pre-roll and post-roll pad the angular <em>rate</em> with zeros but pad the hand
+<em>path</em> by holding its endpoint value. Padding a position with zeros injects a step, and the second
+derivative of a step is an impulse — so every single capture would have carried a phantom impact at the seam,
+in exactly the shape the Stage 1 impact test is built to detect.</p>
+
+<h4>The audit: physics is checkable, and "it looks about right in a plot" is not a check</h4>
+
+<p><code>training/audit_corpus.py</code> reduces a corpus to the quantities that can be checked against
+arithmetic and a stopwatch, and states a pass or a warning against a band for each. Every band is a property
+of a person waving a 50&nbsp;cm stick rather than of this project's model, so <strong>the same script is the
+acceptance test for the real corpus</strong> once it exists. If the real numbers fall outside these bands, the
+bands were what was wrong, and the synthetic corpus tuned to them has to be regenerated before it is used to
+size anything.</p>
+
+<pre>SYNTHETIC -- NOT A RESULT | corpus audit: data/synthetic  (810 captures)
+geometry: wand 50 cm, BNO055 13 cm below the tip, +X towards the tip
+lever arm to the sensor: 0.45 m (wrist) .. 0.99 m (shoulder)
+
+--- kinematics, median [5th, 95th percentile] ---
+class                  n     peak |w| rad/s        peak |a| g      tip m/s      dur s   path  spike  clip%
+LUMOS                108   4.56 [3.23, 6.39]  3.29 [1.85,5.84]  2.28 [1.62]  1.30       2.12     12   0.7%
+ALOHOMORA            108   7.22 [5.24,10.53]  4.96 [3.33,5.72]  3.61 [2.62]  1.40       2.67     36   9.1%
+EXPELLIARMUS         108   3.48 [2.92, 4.12]  2.05 [1.64,2.73]  1.74 [1.46]  1.64       2.06      7   0.0%
+WINGARDIUM LEVIOSA   108   5.71 [4.29, 8.80]  3.89 [2.50,5.90]  2.86 [2.14]  1.29       2.36     26   4.8%
+STUPEFY              108   1.94 [1.41, 2.61]  2.84 [1.70,4.36]  0.97 [0.70]  0.98       0.28      7   0.6%
+NOISE                270   2.09 [0.26, 6.31]  4.34 [0.45,5.97]  1.04 [0.13]  1.60       0.89      2   1.1%
+
+--- lever-arm coupling: corr(peak |w|, peak |a|) within each class ---
+    LUMOS +0.88   ALOHOMORA +0.89   EXPELLIARMUS +0.63
+    WINGARDIUM +0.93   STUPEFY +0.92   NOISE +0.35
+
+--- tensor occupancy per channel group (fraction of range used) ---
+    accel (anchored)     p50 0.009   p99 0.751   max 1.000   at-rail 0.08%
+    gyro (anchored)      p50 0.001   p99 0.441   max 0.921   at-rail 0.00%
+    quaternion           p50 0.057   p99 1.000   max 1.000   at-rail 9.38%
+    |a|                  p50 0.093   p99 0.962   max 1.000   at-rail 0.59%
+    |w|                  p50 0.021   p99 0.569   max 0.978   at-rail 0.00%
+
+all classes fall inside their physical plausibility bands.</pre>
+
+<p>The lever-arm coupling row is the one that only holds if the physics is real. A wand rotating about a pivot
+half a metre away <em>must</em> show acceleration that tracks angular rate; if peak &vert;a&vert; and peak
+&vert;&omega;&vert; were uncorrelated within a spell class, the accelerometer channel would not be coming from
+the geometry — which is precisely the defect this revision exists to remove, so it is checked rather than
+assumed. Stupefy is hand-driven by construction and is exempted; NOISE is a mixture of unrelated behaviours
+and its low &rho; is expected.</p>
+
+<p>The audit also recovers something the CSV does not contain. The logger stores the fusion's gravity-free
+linear acceleration, so the raw accelerometer signal — and therefore the saturation rate — is not in the file.
+But the same file carries the orientation the fusion used to remove gravity, so it can be rebuilt:</p>
+
+<!--CODE:training/audit_corpus.py:py:reconstruct_gravity-->
+
+<p>This matters because saturation is otherwise invisible: a clipped sample looks like an ordinary large
+number in the linear channel, not like a rail. Alohomora saturates on 9.1% of its samples and Wingardium
+Leviosa on 4.8% — both expected for a 50&nbsp;cm lever, both fine, and neither knowable without this
+reconstruction.</p>
+
+<p>Two further BNO055 behaviours are reproduced on purpose, because each has a code path that must survive it:
+quaternion sign flips (4% of frames), occasional all-zero quaternion frames from an I2C hiccup (0.4%), and
+duplicate fusion frames from the beat between the chip's 100&nbsp;Hz clock and the ESP32's (2%).</p>
+
+<div class="callout warn">
+<span class="lab">What this section does and does not claim</span>
+It claims the generator produces signals of the right shape and scale for the wand that was built, and that
+the constants sized against them are therefore sized against something real. It claims nothing whatsoever
+about whether the classifier works. The 0.999 in §9.4 remains fiction, and better physics makes it
+<em>more</em> convincing fiction, not less. Only real captures can produce an accuracy figure, and §13 is the
+plan to get them.
+</div>
+
+<h2 class="newpage">10 &nbsp; Firmware implementation walkthrough</h2>
+
+<h3>10.1 &nbsp; One driver, three firmwares <span class="r3">R4</span></h3>
+
+<p>The BNO055 driver lives in <code>firmware/common/bno055_fusion.cpp</code> and is linked by all three
+targets: the demo firmware, the logger that produces the training data, and the bring-up suite that decides
+whether the sensor is trustworthy at all. That sharing is the point rather than tidiness. A bring-up tool that
+configures the chip its own way tests a configuration that will never be flashed again, and the acceptance it
+grants is worthless; a logger that configures it differently from the demo firmware produces training data
+from a sensor the demo will not be using.</p>
+
+<div class="callout stop">
+<span class="lab">The hazard this consolidation removed</span>
+The tree had accumulated <strong>two incompatible BNO055 implementations</strong>: the fusion driver, and a
+second one running the chip as a plain 6-axis sensor in ACCGYRO mode with its own six-field
+<code>RawSample</code> — same struct name, different fields, different units. Neither was reachable from a
+build, because <code>build_src_filter</code> happened to exclude both directories, so nothing failed and
+nothing warned. The moment anyone changed a filter, the firmware would have filled a fusion-shaped struct from
+raw accelerometer registers and classified at chance, with no error anywhere. The non-fusion path is deleted;
+its two genuinely good ideas — named <code>InitResult</code> failure causes rather than a bool, and read-back
+verification on every configuration write — were kept and are visible in the code below.
+</div>
+
+<h3>10.2 &nbsp; Sensor bring-up, and an assumption converted into a check</h3>
+
+<!--CODE:firmware/common/bno055_fusion.cpp:cpp:begin-->
+
+<div class="callout warn">
+<span class="lab">A silent-failure mode found late, from a parallel implementation</span>
+The BNO055 has <strong>two register pages</strong>, selected by <code>PAGE_ID</code> at 0x07. This design
+never writes a page-1 register — in fusion mode the algorithm owns the ranges — so it initially looked like a
+non-issue. It is not: <code>UNIT_SEL</code> (0x3B) and <code>OPR_MODE</code> (0x3D) are <em>page-0</em>
+addresses. A chip left on page 1 by an earlier experiment, or by a reset partway through someone else's
+configuration sequence, would silently discard both writes, and the wand would run in whatever mode and units
+it happened to be left in — with the sensor streaming perfectly plausible numbers and nothing anywhere
+reporting a problem. One register write closes it, and every configuration write is now read back and
+verified rather than assumed. Claiming to guard against a dropped write without reading it back is not a guard.
+</div>
+
+<p>Two further details are deliberate. The power-on wait is a <em>poll</em> rather than a blind delay: the chip does
+not answer I2C at all for about 650&nbsp;ms, but a bare delay would also hide the case where the sensor is
+genuinely absent, and that should fail loudly at boot. And <code>UNIT_SEL</code> is written even though
+<code>0x00</code> is its power-on default, because a chip left in mg or rad/s by an earlier experiment would
+silently rescale every capture with nothing downstream reporting an error.</p>
+
+<p>The datasheet states that the quaternion registers are valid in every fusion mode. "The datasheet says" is
+exactly the kind of claim this project checks rather than trusts, because if it were wrong the failure would
+be silent — the quaternion would read zero, the preprocessing would substitute the identity, four of twelve
+channels would be constant, and the wand would simply classify worse:</p>
+
+<!--CODE:firmware/common/bno055_fusion.cpp:cpp:quaternionIsLive-->
+
+<h3>10.3 &nbsp; The TFLM operator resolver and inference</h3>
+
+<!--CODE:firmware/wand_infer/wand_infer.cpp:cpp:begin-->
+
+<p>A <code>MicroMutableOpResolver</code> listing exactly the seven kernels this graph uses, rather than
+<code>AllOpsResolver</code> — the latter links every kernel TFLM has, well over 100&nbsp;KB of flash for
+operations this model will never execute. Naming them also means an accidental architecture change that
+introduces a new operator fails loudly at <code>AllocateTensors()</code> instead of silently bloating the
+binary. The added <code>s_in-&gt;bytes</code> check is an R3 guard: a model retrained with a different channel
+count against firmware that was not rebuilt would otherwise read past its input tensor.</p>
+
+<h3>10.4 &nbsp; A window of stale data that passed the duration gate <span class="r3">R4</span></h3>
+
+<p>The ring buffer holds 320 samples — 3.2 seconds. The capture window holds 230. Hold the trigger for six
+seconds and the requested window is 600 samples long, of which the first 280 have been overwritten.</p>
+
+<p>The original code clamped the <em>count</em> to the window capacity and then read from the original start
+position. So it returned 230 samples of unrelated history, spliced across the ring's write pointer, carrying a
+duration of exactly 2.30&nbsp;s — which is <code>REJ_MAX_DURATION_S</code>, and the bound is a strict
+<code>&gt;</code>. The window passed the duration gate and went to the network. A garbage window that gets
+<em>rejected</em> is a non-event; a garbage window that gets <em>classified</em> is a spell nobody cast, in
+front of a judge, from a wand that was simply being held.</p>
+
+<!--CODE:firmware/wand_infer/wand_infer.cpp:cpp:snapshot-->
+
+<p>Two changes, deliberately overlapping. The caller now rejects an over-long hold where the true held length
+is still known — once the count has been clamped, that information is gone and every over-long hold looks like
+an ordinary 2.3-second gesture. And the function independently refuses to read data the ring can no longer
+vouch for. The two failures look identical from outside and only one of them announces itself, which is the
+argument for having both.</p>
+
+<h3>10.5 &nbsp; Compiling the firmware without the toolchain <span class="r3">R4</span></h3>
+
+<p>The ESP32 toolchain lives on one laptop. Everyone else's round trip for a typo was: push, ask, wait, read
+the error, fix, repeat. <code>tools/hostcheck/check.sh</code> type-checks all six firmware translation units
+with <code>g++ -fsyntax-only</code> against stubbed <code>Arduino.h</code>, <code>Wire.h</code>, the two
+Adafruit headers, FastLED, and the slice of TFLite Micro that <code>wand_infer.cpp</code> actually calls. The
+TFLM stubs mirror the real signatures, so a call that no longer matches the library fails here rather than on
+the ESP32.</p>
+
+<pre>$ ./tools/hostcheck/check.sh
+host type-check (stubbed Arduino; not a functional test)
+  firmware/common/bno055_fusion.cpp             OK
+  firmware/wand_infer/preprocess.cpp            OK
+  firmware/wand_infer/reject.cpp                OK
+  firmware/wand_infer/parity_host.cpp           OK
+  firmware/wand_logger/wand_logger.cpp          OK
+  firmware/wand_tools/bno_bringup.cpp           OK
+  firmware/wand_infer/wand_infer.cpp            OK</pre>
+
+<p>It is worth being precise about what this is not. The stubs compute nothing; nothing here is executed, and
+a green result says only that the code compiles. It removes the flash-cycle-per-typo loop, which on a
+five-person team with one toolchain is most of the round trips, and it is not a substitute for
+<code>pio run</code>.</p>
+
+<h3>10.5 &nbsp; Graceful degradation and fault signalling</h3>
+
+<p>The usual SSD1306 example code responds to <code>begin()</code> returning false with
+<code>for(;;);</code>. If the OLED is miswired that makes the entire wand appear dead — including the LED
+ring, which would otherwise still be perfectly capable of casting. The firmware records the failure and
+carries on. Conversely, sensor, quaternion and model failures <em>are</em> fatal, and each signals a distinct
+LED pattern so a fault can be diagnosed across a room with no serial port available:</p>
+
+<table>
+<tr><th>Pattern</th><th>Meaning</th><th>First thing to check</th></tr>
+<tr><td>Red, 300 ms blink</td><td>BNO055 not found, or would not enter fusion mode</td><td>SDA/SCL on GPIO21/22, address 0x28 not 0x68, 3.3 V present</td></tr>
+<tr><td>Yellow, 150 ms blink</td><td>Sensor answers, but the quaternion is not live</td><td><code>OPR_MODE</code> actually took; the chip may have fallen back to CONFIG</td></tr>
+<tr><td>Magenta, 120 ms blink</td><td>Model or arena failure</td><td>Channel count mismatch between <code>model_data.cc</code> and the firmware build</td></tr>
+<tr><td>Amber, steady</td><td>Waiting for gyro calibration</td><td>Nothing — hold the wand still for a few seconds</td></tr>
+</table>
+
+<h3>10.6 &nbsp; Build targets</h3>
+
+<!--CODE:platformio.ini:lines:16:50-->
+
+<p><code>DEBUG_SERIAL</code> is the project's defence against the offloading rule, and a defence that depends
+on someone remembering to edit a <code>#define</code> before the demo is not a defence. Here it is a property
+of the selected build target, visible in the status bar and impossible to get wrong by forgetting. Library
+versions are pinned deliberately: two team members on different Adafruit_GFX minor versions produce boards
+that behave differently for no visible reason.</p>
+
+<h2>11 &nbsp; Latency and memory budget</h2>
+
+<h3>11.1 &nbsp; The Quick-Draw path</h3>
+
+<table>
+<tr><th>Stage</th><th class="num">Time</th><th>Basis</th></tr>
+<tr><td>Trigger release debounce</td><td class="num">20 ms</td><td>Design constant; 20 ms software on top of a ~4.5 ms hardware RC</td></tr>
+<tr><td>Post-roll accumulation</td><td class="num">100 ms</td><td>10 samples at 100 Hz — a design choice, see below</td></tr>
+<tr><td>Preprocessing (230 samples)</td><td class="num">~0.6 ms</td><td>Estimated. <strong>Down from ~2.5 ms in R2</strong>: the chain no longer contains a complementary filter or a gravity projection, so there are no transcendental calls left except two <code>sqrtf</code> per sample.</td></tr>
+<tr><td>TFLM inference</td><td class="num">~2–5 ms</td><td>Estimated: ~66k MAC operations, int8 kernels at 240 MHz</td></tr>
+<tr><td>Cascade decision</td><td class="num">&lt;0.01 ms</td><td>A handful of comparisons</td></tr>
+<tr><td>LED ring update</td><td class="num">0.24 ms</td><td>8 LEDs at ~30 &micro;s each</td></tr>
+<tr><td><strong>Perceived latency (to LED)</strong></td><td class="num"><strong>~124 ms</strong></td><td></td></tr>
+<tr><td>OLED full-frame refresh</td><td class="num">~27 ms</td><td>128&times;64 at 400 kHz</td></tr>
+<tr><td><strong>Total to full readout</strong></td><td class="num"><strong>~151 ms</strong></td><td></td></tr>
+</table>
+
+<p>The honest observation is that 120 of those 124 milliseconds are the debounce and the post-roll wait, not
+computation. Signal processing and inference together account for under 6&nbsp;ms. If the judges weight
+latency heavily, the post-roll can be cut to 5 samples and the release debounce to 10&nbsp;ms, bringing
+perceived latency to roughly 70&nbsp;ms — at the cost of some settling motion that carries real discriminative
+content for the flick-terminated spells. That trade is a two-constant change in the shared header and should
+be made after measuring both, not assumed.</p>
+
+<p>For context, the threshold for perceiving a response as instantaneous is generally placed around
+100–150&nbsp;ms, so the current configuration sits at the edge of that band and the reduced configuration sits
+comfortably inside it. <code>LATENCY_MS</code> is measured on device from confirmed trigger release to
+decision and rendered on the OLED for every cast, alongside the isolated inference time and the arena
+high-water mark, as the problem statement requires.</p>
+
+<h3>11.2 &nbsp; Memory</h3>
+
+<table>
+<tr><th>Item</th><th class="num">Bytes</th><th>Notes</th></tr>
+<tr><td>Model flatbuffer (flash)</td><td class="num">22,520</td><td>Measured. 7,174 int8 parameters plus flatbuffer structure and quantisation metadata</td></tr>
+<tr><td>TFLM tensor arena (SRAM)</td><td class="num">28,672</td><td>Allocated. Largest concurrent activation set is ~2 KB; expected use under 10 KB. The real figure is printed on the OLED from <code>arena_used_bytes()</code></td></tr>
+<tr><td>Sample ring buffer</td><td class="num">7,680</td><td>320 &times; 24 bytes (the sample grew with the quaternion)</td></tr>
+<tr><td>Capture window</td><td class="num">5,520</td><td>230 &times; 24 bytes</td></tr>
+<tr><td>Preprocessing scratch</td><td class="num">~20,200</td><td>Static, not stack — the FreeRTOS task stack is 8 KB and these buffers exceed it</td></tr>
+<tr><td>Input tensor</td><td class="num">3,072</td><td>768 floats</td></tr>
+<tr><td>Framebuffer + LED buffer</td><td class="num">1,048</td><td>SSD1306 1 KB, ring 24 B</td></tr>
+<tr><td><strong>Total SRAM</strong></td><td class="num"><strong>~66 KB</strong></td><td><strong>of 520 KB — about 13%</strong></td></tr>
+</table>
+
+<p>No heap allocation occurs on the hot path. Every buffer is statically allocated, so the latency figure
+above contains no allocator variance and cannot fragment over a long demonstration session.</p>
+
+<h2>12 &nbsp; On-device processing compliance</h2>
+
+<p>The problem statement specifies immediate disqualification if serial communication is used to offload
+inference. Three independent measures address this:</p>
+
+<ol>
+<li><strong>The demo firmware contains no serial code.</strong> <code>Serial.begin()</code> sits behind
+<code>#if DEBUG_SERIAL</code>, and the <code>infer_nn</code> build target sets it to 0. The call is not
+compiled into the binary — verifiable by inspecting the build flags rather than by trusting a promise.</li>
+<li><strong>The build flag is a named target, not a hand edit.</strong> It cannot be forgotten, because
+selecting the demo target is what sets it.</li>
+<li><strong>The wand runs on battery.</strong> During the demonstration no USB cable is connected, which
+makes the point visible to the judges without requiring them to read any code. <em>If the budget forces the
+power-bank option in §3.2, this argument weakens and should be replaced by showing the build flags.</em></li>
+</ol>
+
+<h2 class="newpage">13 &nbsp; Execution plan for the remaining build window</h2>
+
+<p>Software is not the bottleneck; the pipeline is built and verified. The critical path is data collection,
+which five people cannot compress much below its natural duration and which every remaining task depends on.
+The sensor change adds two bring-up steps that must happen before any collection, and one of them is
+genuinely dangerous to skip.</p>
+
+<table>
+<tr><th style="width:13%">When</th><th style="width:27%">Task</th><th style="width:11%">Owner</th><th>Exit criterion</th></tr>
+<tr><td><strong>Now</strong></td><td>Resolve the budget question with the coordinators</td><td>1 person</td><td>A written answer on whether a borrowed BNO055 counts against the &#8377;2,000 cap (§3.1)</td></tr>
+<tr><td><strong>Now</strong></td><td>Flash <code>pio run -e bringup</code> on a breadboarded ESP32 + BNO055</td><td>1 person</td><td>Tests 1–3 pass: I2C scan finds <strong>0x28</strong>, <code>CHIP_ID</code> reads <strong>0xA0</strong>, <code>begin()</code> returns <code>OK</code>, quaternion norm is unit</td></tr>
+<tr><td>+20 min</td><td>Bring-up test 4: <strong>scale verification</strong></td><td>same</td><td>Linear acceleration reads ~0 with the wand flat and still — <em>not</em> ~981. A reading near 981 means the chip is handing back raw accelerometer registers and is not fusing. Then a 90&deg; roll integrates to 75–105&deg;.</td></tr>
+<tr><td>+35 min</td><td>Bring-up test 5: <strong>mounting geometry</strong> <span class="r3">R4</span></td><td>same</td><td>Tip pointed at the floor, body-frame "up" reads approximately (&minus;1,&nbsp;0,&nbsp;0), confirming +X points at the tip. Then a tip-up flick shows Y dominant and negative, and peak &vert;a&vert; in the 1.5–4&nbsp;g band. <em>Under 0.5&nbsp;g means the lever-arm model does not describe this build and the bootstrap corpus must be regenerated with the geometry you actually have (§4.2).</em></td></tr>
+<tr><td>+50 min</td><td>Bring-up test 6: <strong>10-minute clock-stretching stress test</strong></td><td>same</td><td>Zero I2C errors, max read under 6&nbsp;ms, with the wand waved and the LED ring lit throughout. <em>Do this before soldering anything permanently</em> — clock stretching on this family produces an intermittent freeze that passes every short test and dies during the demo.</td></tr>
+<tr><td>+1.5 h</td><td>Trigger button on GPIO27 + 100 nF; flash <code>-e logger</code></td><td>same</td><td>A one-second hold produces ~130 rows, every <code>dt_us</code> at 10000 &plusmn; 200, duplicate rate under 12%; <code>collect.py</code> accepts the capture</td></tr>
+<tr><td>+2 h</td><td><strong>Grip-invariance bring-up test</strong></td><td>1 person</td><td>Perform the same physical gesture twice with the wand rolled ~90&deg; differently in the hand. The anchored channels should look near-identical while the body-frame channels differ completely. This validates the whole representation in one minute and produces a figure for the report.</td></tr>
+<tr><td>+2 h</td><td>Parity check against the first real capture</td><td>1 person</td><td><code>PARITY OK</code> on real data, not only bootstrap, including zero gate-verdict mismatches</td></tr>
+<tr><td>+2.5 h</td><td><strong><code>audit_corpus.py data/raw</code> on the first 50 captures</strong> <span class="r3">R4</span></td><td>1 person</td><td>All classes inside their plausibility bands. <em>If they are not, stop and reconcile before collecting 500 more</em> — the bands are what the divisors, the gate and the arena were sized against, and a mismatch means one of them is describing a different wand (§9.5).</td></tr>
+<tr><td>+3 h</td><td>Full collection push, all five casters</td><td><strong>all 5</strong></td><td>&ge;525 captures in <code>data/raw</code>; the loader guard stops complaining</td></tr>
+<tr><td>parallel</td><td>Enclosure per the §3.5 stack-up: BNO055 rigidly bonded at <strong>370 mm from the butt</strong>, +X towards the tip</td><td>1 person</td><td>Sensor cannot move inside the tube; the measured distance is within ±5&nbsp;mm of 370 and matches <code>SENSOR_FROM_BUTT_M</code>. Photograph the mounting — the report needs it, and it is the first thing to check if a gesture misfires.</td></tr>
+<tr><td>parallel</td><td>Power: set MT3608 to <strong>4.50 V</strong> before connecting anything</td><td>1 person</td><td>4.50 V measured on an open output; Li-Po polarity verified with a multimeter and marked</td></tr>
+<tr><td>+6 h</td><td><code>train_cnn.py</code> on real data, LOCO</td><td>1 person</td><td>A real accuracy figure with non-zero variance across folds</td></tr>
+<tr><td>+7 h</td><td><code>calibrate.py</code> — thresholds, gate percentiles, impact sweep</td><td>same</td><td><code>WAND_THRESHOLDS_CALIBRATED 1</code>; the skipped pytest now runs and passes</td></tr>
+<tr><td>+8 h</td><td>Flash <code>infer_nn</code>, measure real latency and arena use</td><td>1 person</td><td>Numbers on the OLED; §11 updated with measurements replacing estimates</td></tr>
+<tr><td>+10 h</td><td>Adversarial testing — team deliberately trying to cause misfires</td><td><strong>all 5</strong></td><td>Zero misfires across 100 deliberate Muggle movements</td></tr>
+<tr><td>+12 h</td><td>Confusion matrix, figures, report update, PPT, demo video</td><td>2 people</td><td>Submission package assembled</td></tr>
+</table>
+
+<h2>14 &nbsp; Risk register and fallbacks</h2>
+
+<table>
+<tr><th style="width:24%">Risk</th><th style="width:9%">Likelihood</th><th style="width:9%">Impact</th><th>Mitigation</th></tr>
+<tr><td><strong>BoM exceeds &#8377;2,000</strong></td><td>High</td><td>High</td><td>Four levers ranked in §3.2. The first is a five-minute question to the coordinators and should be asked today.</td></tr>
+<tr><td><strong>No spare IMU</strong></td><td>Medium</td><td>Critical</td><td>New in R3 and the most serious hardware risk. The MPU-6050 BoM carried two modules at &#8377;75 each; a spare BNO055 is unaffordable. <em>Mitigation:</em> handle the sensor as the single point of failure it is — solder rather than breadboard for the demo, strain-relieve the wires, and keep the R2 MPU-6050 chain in git history so a dead sensor means reverting a branch and retraining, not redesigning.</td></tr>
+<tr><td>I2C clock-stretching lockup</td><td>Medium</td><td>Critical</td><td>Bus at 100 kHz, <code>Wire.setTimeOut(1000)</code>, and the 3-minute stress test as a gate before soldering. Duplicate-frame counting gives an early warning in the field.</td></tr>
+<tr><td>Gyro calibration not reached before a judge casts</td><td>Medium</td><td>Medium</td><td>Firmware refuses to arm and says so on the OLED. Better to show "CALIBRATING, hold still" for four seconds than to accept a cast the fusion cannot support.</td></tr>
+<tr><td>CNN underperforms on real data</td><td>Medium</td><td>High</td><td><code>infer_dtw</code> build target — banded DTW over k-medoid templates, no training required. One flag, same firmware, same preprocessing chain.</td></tr>
+<tr><td>Lumos/Alohomora confusion</td><td>Medium</td><td>Medium</td><td>Anticipated in the design: the top-1/top-2 margin exists for this pair, and calibration breaks ties toward a larger margin. R3 should help materially — the two differ in the <em>direction</em> of the loop, which is now carried explicitly by the quaternion channels rather than having to be inferred from a spinning body frame.</td></tr>
+<tr><td>Saturation at &plusmn;4 g on sharp casts</td><td>High</td><td>Low</td><td>Expected, derived, and measured. With a 0.45&ndash;0.99 m lever arm the rail is reached by Alohomora on 9.1% of samples and Wingardium Leviosa on 4.8% (§9.5) &mdash; not by Stupefy, which was R3's guess. A saturated flick is still unmistakable, the divisor now spans the true &plusmn;5 g reportable range (§6.5), and the impact test separates a knock from a cast by duration rather than magnitude.</td></tr>
+<tr><td>Data collection runs short</td><td>Medium</td><td>High</td><td>8&times; augmentation reduces the required real sample count; the collection script randomises variation so fewer captures still span the space.</td></tr>
+<tr><td>Trigger button ruled out</td><td>Low</td><td>High</td><td><code>AUTO_SEGMENT=1</code> target already builds; Stage 4 temporal persistence is implemented and compiles only in that mode.</td></tr>
+<tr><td>Preprocessing divergence</td><td>Low</td><td>Critical</td><td>Ruled out and continuously testable (§9.2), with two verified negative controls.</td></tr>
+<tr><td>A synthetic figure reaching the report</td><td>Low</td><td>High</td><td>Three independent locks (§9.4) plus a mandatory stamp on every printed number.</td></tr>
+</table>
+
+<h2>15 &nbsp; Appendix: repository layout and reproduction</h2>
+
+<pre class="long">wand/
+├── platformio.ini                    5 targets: bringup, logger, infer_nn, infer_dtw, infer_nn_autoseg
+├── shared/
+│   ├── wand_config.h                 single source of truth — constants AND the wand's geometry
+│   └── wand_thresholds.h             AUTO-GENERATED by calibrate.py; the three measured thresholds
+├── training/
+│   ├── wand_config.py                Python mirror of the headers
+│   ├── preprocess.py                 REFERENCE signal chain: quaternion anchoring + the Stage 1 gate
+│   ├── dataset.py                    loading, the synthetic guard, LOCO splitter
+│   ├── augment.py                    five physically exact transforms + re-anchoring
+│   ├── train_cnn.py                  model, LOCO harness, int8 quantisation, C array export
+│   ├── calibrate.py                  measures the thresholds and both Stage 1 sweeps; writes the header
+│   ├── diagnose.py                   argmax vs cascade, threshold sweep
+│   ├── synth_bootstrap.py            QUARANTINED generator — rigid-body physics from the geometry
+│   ├── audit_corpus.py               physical plausibility audit; works on real corpora too
+│   ├── collect.py                    the only program allowed to write data/raw
+│   ├── parity_check.py               Python vs C++ preprocessing AND Stage 1 verdict
+│   └── test_config_parity.py         header vs Python constant and layout drift
+├── firmware/
+│   ├── common/
+│   │   ├── bno055_fusion.{h,cpp}     THE BNO055 driver — one copy, linked by all three targets
+│   │   └── wand_types.h              struct RawSample — one definition, four consumers
+│   ├── wand_tools/bno_bringup.cpp    6-test acceptance suite incl. the mounting-geometry check
+│   ├── wand_logger/wand_logger.cpp   collection firmware, serial ON, emits the CSV contract
+│   └── wand_infer/
+│       ├── wand_infer.cpp            demo firmware: sampler, TFLM, cascade, feedback
+│       ├── preprocess.{h,cpp}        line-for-line port of preprocess.py
+│       ├── reject.{h,cpp}            the five-stage cascade
+│       ├── parity_host.cpp           host build of the chain — no Arduino dependency
+│       ├── model_data.{h,cc}         AUTO-GENERATED int8 model as a C array
+│       └── wand_model.tflite         22,520 bytes
+├── tools/hostcheck/                  g++ type-check of all six firmware units, stubbed Arduino + TFLM
+├── docs/
+│   ├── report.html                   this document; code blocks are SYMBOL references, not line ranges
+│   └── build_report.py               resolves them from the repository at build time
+└── data/
+    ├── raw/                          real captures ONLY — written by collect.py alone
+    └── synthetic/                    quarantined; carries DO_NOT_TRAIN_FOR_REPORT.txt</pre>
+
+<h3>Reproducing every measurement in this report</h3>
+
+<pre># firmware -- compiles without the ESP32 toolchain
+./tools/hostcheck/check.sh
+
+# pipeline, in this order
+python training/synth_bootstrap.py --casters 6 --reps 18 --noise-reps 45
+python training/audit_corpus.py data/synthetic
+python -m pytest training/test_config_parity.py -v
+python training/parity_check.py --data ../data/synthetic --n 60      # from training/
+python training/train_cnn.py  --data data/synthetic --allow-synthetic --epochs 60
+python training/calibrate.py  --data data/synthetic --allow-synthetic --epochs 60
+
+# report
+python docs/build_report.py
+
+# and, once real gestures exist -- in this order:
+python training/audit_corpus.py data/raw          # BEFORE collecting the other 475
+python training/parity_check.py --data ../data/raw --n 30
+python training/train_cnn.py    --data data/raw
+python training/calibrate.py    --data data/raw --misfire-budget 0.0</pre>
+
+<h3>If the wand you build is not the wand this report describes</h3>
+
+<p>Three numbers in <code>shared/wand_config.h</code> describe the physical object:
+<code>WAND_LENGTH_M</code>, <code>SENSOR_FROM_TIP_M</code> and <code>SENSOR_FROM_BUTT_M</code>. If the tube
+ends up a different length, or the sensor lands somewhere else along it, change them there — not in the
+generator — then regenerate the corpus, re-run the audit, and re-run both Stage 1 sweeps. Everything
+downstream follows, because nothing downstream re-types those numbers. A wand whose geometry differs from its
+config file will still train, still run, and still classify; it will simply do so slightly worse, for reasons
+nothing will report.</p>
+
+<p class="small" style="margin-top:20pt; border-top:0.5pt solid #ccc; padding-top:8pt">
+Document revision R4 &middot; 1 September 2026. Every figure attributed to a measurement was produced by the
+commands above and can be reproduced from the repository. No accuracy figure in this document is derived from
+human gesture data; §1.1 states precisely what has and has not been measured, and §13 gives the plan that
+closes the gap. BNO055 register addresses, operating-mode values and scale factors are taken from the Bosch
+Sensortec BNO055 datasheet.</p>
+
+</body>
+</html>

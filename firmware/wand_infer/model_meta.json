@@ -1,0 +1,17 @@
+{
+  "synthetic": false,
+  "params": 7174,
+  "tflite_bytes": 22520,
+  "n_casters": 1,
+  "loco_validated": false,
+  "loco_mean": null,
+  "loco_std": null,
+  "classes": [
+    "LUMOS",
+    "ALOHOMORA",
+    "EXPELLIARMUS",
+    "WINGARDIUM LEVIOSA",
+    "STUPEFY",
+    "NOISE"
+  ]
+}
