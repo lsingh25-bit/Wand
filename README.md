@@ -70,7 +70,7 @@ test and dies during the demo.
 `DEBUG_SERIAL=0` in the demo target is the defence against the offloading-disqualification
 rule — the call is not in the binary.
 
-## Sensor: BNO055, not MPU-6050
+## Sensor: BNO055 Configuration
 
 Address `0x28`, CHIP_ID at `0x00` reads `0xA0`, `OPR_MODE = 0x08` (IMU fusion, magnetometer
 off), bus 0 at **100 kHz** with a 1 s timeout because this part stretches the clock.
